@@ -1,2 +1,2 @@
 # WebpageSysAdmin
-Competentie Framework voor System Administrators in z/OS omgeving.
+Competency Framework for System Administrators in z/OS Environment.
