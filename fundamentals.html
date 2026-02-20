@@ -29,8 +29,6 @@
   <main class="container">
     <section class="section">
       <div class="section-title">
-        <h2>z/OS Basics / Fundamentals</h2>
-        <p class="muted">Start with the “core mental model”.</p>
       </div>
 
       <div class="grid areas">
@@ -55,21 +53,200 @@
         </a>
       </div>
     </section>
+<section class="section">
+  <div class="section-title">
+    <h2>z/OS Fundamentals</h2>
+    <p class="muted">Write your notes here and keep everything in one place.</p>
+  </div>
 
-    <section class="section">
-      <div class="section-title">
-        <h2>Suggested learning path</h2>
-        <p class="muted">A simple order that matches real admin work.</p>
+  <div class="panel" style="margin-top: 12px;">
+    <div class="panel-title">How to use this page</div>
+    <p style="line-height: 1.7; color: rgba(233,255,244,0.85);">
+      Add small, practical notes under each question. Keep it short per section: definition → why it matters → what you see in ops.
+    </p>
+  </div>
+
+  <div class="qa" style="margin-top: 14px;">
+    <details open class="qa-item">
+      <summary class="qa-summary">
+        1) What is z/OS?
+        <span class="qa-hint muted">click to expand/collapse</span>
+      </summary>
+      <div class="qa-body">
+        <ul class="qa-list">
+          <li>z/OS is IBM’s flagship mainframe operating system. It is a highly secure, scalable, enterprise-class OS designed to run on IBM z Systems mainframe hardware. It provides a continuously available, high-performance environment for very large workloads such as global financial systems, airline reservations, banking transactions, and government systems.
+It is the latest evolution of IBM’s mainframe OS family. Its architecture builds on decades of IBM history, evolving from older systems like MVS, OS/390 and others into a modern, 64-bit operating system.
+z/OS supports thousands of concurrent jobs and users, making it ideal for enterprise computing where reliability and uptime are critical.</li>
+<li>
+
+z/OS is the continuation of IBM’s MVS lineage: <br>
+
+MVS (Multiple Virtual Storage) = the original multi-tasking mainframe OS concept <br>
+
+OS/390 = a later evolution that bundled components into a cohesive OS <br>
+
+z/OS = the modern 64-bit successor, designed specifically for zArchitecture hardware <br>
+
+This continuity is intentional: many enterprise workloads written decades ago still run on z/OS systems today.</li>
+          <li>List typical subsystems and what they do (JES, CICS, Db2, IMS, TCP/IP…).</li>
+          <li>Add “how to recognize it running” (started tasks, address spaces, commands, SDSF).</li>
+        </ul>
+
+        <div class="qa-note">
+          <span class="qa-note-label">1-line useful info</span>
+          <span class="qa-note-text">Subsystems are specialized components that provide services (like batch, transaction, database, networking) on top of z/OS.</span>
+        </div>
       </div>
+    </details>
+    <details class="qa-item">
+      <summary class="qa-summary">
+        2) How System Admins Interact With z/OS: Interfaces & Legacy Methods
+        <span class="qa-hint muted">click to expand/collapse</span>
+      </summary>
+      <div class="qa-body">
+        <ul class="qa-list">
+          <li>Terminal Emulators (3270 / TN3270) <br>
 
-      <ol style="margin-left: 18px; line-height: 1.7; color: rgba(233,255,244,0.85);">
-        <li>What is z/OS + what runs on it (subsystems)</li>
-        <li>TSO/ISPF navigation + datasets basics</li>
-        <li>Address spaces + virtual storage</li>
-        <li>IPL + JES + job lifecycle</li>
-        <li>Sysplex overview</li>
-      </ol>
-    </section>
+Mainframe consoles and user sessions traditionally use 3270 terminal protocols. These were originally hardware terminals; today, software 3270 emulators (often TN3270 over TCP/IP) let sysadmins and users interact with z/OS screens from PCs.
+<div class="image-block">
+  <img src="img/tn3270.png" 
+       alt="Example TN3270 terminal session"
+       class="content-image">
+
+  <div class="image-caption">
+    Example TN3270 terminal session (Mocha TN3270 emulation)
+  </div>
+</div></li>
+          <li>Dataset naming rules + HLQ/qualifiers (your notes).</li>
+          <li>Dataset types you touch often (PS, PDS/PDSE, VSAM, GDG).</li>
+        </ul>
+
+        <div class="qa-note">
+          <span class="qa-note-label">1-line useful info</span>
+          <span class="qa-note-text">In z/OS, a dataset is the basic “file” concept, and catalog entries tell the system where the data lives.</span>
+        </div>
+      </div>
+    </details>
+    <details class="qa-item">
+      <summary class="qa-summary">
+        2) TSO/ISPF navigation + datasets basics
+        <span class="qa-hint muted">click to expand/collapse</span>
+      </summary>
+      <div class="qa-body">
+        <p class="muted">Your answer:</p>
+        <ul class="qa-list">
+          <li>Common ISPF panels you use (e.g., 3.4, editor, command line habits).</li>
+          <li>Dataset naming rules + HLQ/qualifiers (your notes).</li>
+          <li>Dataset types you touch often (PS, PDS/PDSE, VSAM, GDG).</li>
+        </ul>
+
+        <div class="qa-note">
+          <span class="qa-note-label">1-line useful info</span>
+          <span class="qa-note-text">In z/OS, a dataset is the basic “file” concept, and catalog entries tell the system where the data lives.</span>
+        </div>
+      </div>
+    </details>
+
+    <details class="qa-item">
+      <summary class="qa-summary">
+        3) Address spaces + virtual storage
+        <span class="qa-hint muted">click to expand/collapse</span>
+      </summary>
+      <div class="qa-body">
+        <p class="muted">Your answer:</p>
+        <ul class="qa-list">
+          <li>Define address space in your own words and how it relates to isolation.</li>
+          <li>Explain virtual storage at a high level (private/common, paging terms as you like).</li>
+          <li>Write down what you check when something “runs out of storage”.</li>
+        </ul>
+
+        <div class="qa-note">
+          <span class="qa-note-label">1-line useful info</span>
+          <span class="qa-note-text">Each address space gets its own virtual storage view, which is why many workloads can run safely side-by-side.</span>
+        </div>
+
+        <div style="margin-top: 12px;">
+          <a class="btn primary" href="address-spaces.html">Go to: Address Spaces page</a>
+        </div>
+      </div>
+    </details>
+
+    <details class="qa-item">
+      <summary class="qa-summary">
+        4) IPL + JES + job lifecycle
+        <span class="qa-hint muted">click to expand/collapse</span>
+      </summary>
+      <div class="qa-body">
+        <p class="muted">Your answer:</p>
+        <ul class="qa-list">
+          <li>What IPL means for you operationally (what starts, what must come up).</li>
+          <li>What JES does and why spooling exists.</li>
+          <li>Job states (from submission → execution → output) in your words.</li>
+        </ul>
+
+        <div class="qa-note">
+          <span class="qa-note-label">1-line useful info</span>
+          <span class="qa-note-text">JES manages batch work by reading jobs, queuing them (spool), selecting execution, and handling output.</span>
+        </div>
+      </div>
+    </details>
+
+    <details class="qa-item">
+      <summary class="qa-summary">
+        5) Sysplex overview
+        <span class="qa-hint muted">click to expand/collapse</span>
+      </summary>
+      <div class="qa-body">
+        <p class="muted">Your answer:</p>
+        <ul class="qa-list">
+          <li>Why sysplex exists (availability, scaling, workload distribution).</li>
+          <li>What changes in operations when you have multiple images.</li>
+          <li>Terms you want to remember (keep this list small).</li>
+        </ul>
+
+        <div class="qa-note">
+          <span class="qa-note-label">1-line useful info</span>
+          <span class="qa-note-text">A sysplex lets multiple z/OS systems cooperate as one environment for resilience and shared workload.</span>
+        </div>
+      </div>
+    </details>
+  </div>
+</section>
+<section class="section sources">
+  <div class="section-title">
+    <h2>Sources & References</h2>
+  </div>
+
+  <div class="panel">
+    <ul class="source-list">
+
+      <li>
+        <a href="https://www.ibm.com/docs/en/zos-basic-skills?topic=systems-mainframe-operating-system-zos" target="_blank">
+          IBM Mainframe operating system: z/OS
+        </a>
+      </li>
+
+      <li>
+        <a href="https://openmainframeproject.org/blog/an-introduction-to-mvs-ibm-mainframe-and-z-os/" target="_blank">
+          Open Mainframe Project: An Introduction to MVS, IBM Mainframe and z/OS
+        </a>
+      </li>
+
+      <li>
+        <a href="https://en.wikipedia.org/wiki/3270_emulator" target="_blank">
+          Wikipedia: 3270 emulator
+        </a>
+      </li>
+        <li>
+        <a href="https://www.redbooks.ibm.com/abstracts/crse0304.html" target="_blank">
+            IBM Redbooks: Introduction to z/OS
+        </a>
+      </li>
+    </ul>
+  </div>
+</section>
   </main>
+  
 </body>
+
 </html>

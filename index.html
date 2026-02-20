@@ -25,67 +25,40 @@
     </nav>
   </header>
 
-<<<<<<< Updated upstream
-  <h2>Navigation</h2>
-  <ul>
-    <li><a href="slides.html">Slides</a></li>
-    <li><a href="theory.html">Theory Exercises</a></li>
-    <li><a href="practical.html">Practical Exercises</a></li>
-  </ul>
-=======
   <main class="container">
     <section class="hero">
       <div class="hero-left">
         <h1>Learn z/OS like a sysprog</h1>
-        <p class="muted">
-          A structured, mainframe-themed knowledge base covering hardware, z/OS core, system software,
-          operations, security, and governance.
-        </p>
+        <p class="muted">Abdul</p>
 
         <div class="cta-row">
-          <a class="btn primary" href="fundamentals.html">
-            Start: z/OS Basics / Fundamentals
-          </a>
-          <a class="btn ghost" href="roadmap.html">
-            View Roadmap
-          </a>
+          <a class="btn primary" href="fundamentals.html">Start: z/OS Core</a>
+          <a class="btn ghost" href="roadmap.html">View Roadmap</a>
+        </div>
+
+        <!-- Level toggle -->
+        <div class="level-switch" role="tablist" aria-label="Competency Level">
+          <button class="togglebtn active" id="btn-l1" role="tab" aria-selected="true" aria-controls="level1">
+            LEVEL 1
+          </button>
+          <button class="togglebtn" id="btn-l2" role="tab" aria-selected="false" aria-controls="level2">
+            LEVEL 2
+          </button>
         </div>
 
         <div class="statusline">
+          <span class="pill" id="level-pill">CURRENT: LEVEL 1</span>
           <span class="pill">STATUS: ONLINE</span>
           <span class="pill">MODE: STUDY</span>
-          <span class="pill">TARGET: L1 → L2</span>
         </div>
       </div>
 
       <div class="hero-right">
         <div class="panel">
-          <div class="panel-title">Quick Topics</div>
-          <div class="grid">
-            <a class="card" href="fundamentals.html">
-              <div class="card-title">z/OS Core</div>
-              <div class="card-desc">Address spaces, virtual storage, IPL, JES, sysplex…</div>
-              <div class="card-tag">Start here</div>
-            </a>
-
-            <a class="card disabled" href="#">
-              <div class="card-title">Hardware</div>
-              <div class="card-desc">CPC, channels/I-O, peripherals…</div>
-              <div class="card-tag">Coming next</div>
-            </a>
-
-            <a class="card disabled" href="#">
-              <div class="card-title">Security</div>
-              <div class="card-desc">RACF basics + advanced…</div>
-              <div class="card-tag">Planned</div>
-            </a>
-
-            <a class="card disabled" href="#">
-              <div class="card-title">Operations</div>
-              <div class="card-desc">SDSF, monitoring, scheduling, performance…</div>
-              <div class="card-tag">Planned</div>
-            </a>
-          </div>
+          <div class="panel-title">Console Note</div>
+          <p style="line-height: 1.65; color: rgba(233,255,244,0.85);">
+            Remember to loot every red item in arena breakout before selami does.
+          </p>
         </div>
       </div>
     </section>
@@ -93,60 +66,177 @@
     <section class="section">
       <div class="section-title">
         <h2>Competency Areas</h2>
-        <p class="muted">This mirrors your full list — we’ll fill these out page-by-page.</p>
+        <p class="muted">Level 1 vs Level 2 content changes per category.</p>
       </div>
 
-      <div class="grid areas">
-        <a class="area-card" href="fundamentals.html">
-          <div class="area-name">Operating System (z/OS core)</div>
-          <div class="area-items">address spaces • virtual storage • IPL • JES • sysplex • datasets • DFSMS • TCP/IP</div>
-        </a>
-
-        <a class="area-card disabled" href="#">
-          <div class="area-name">System Software</div>
-          <div class="area-items">CICS • IMS • Db2 • SMP/E • z/OSMF • WLM • SMF/RMF • VTAM • SNA • IWS/TWS</div>
-        </a>
-
+      <!-- LEVEL 1 (8 categories) -->
+      <div id="level1" class="grid areas level-grid">
+        <!-- Hardware -->
         <a class="area-card disabled" href="#">
           <div class="area-name">Hardware</div>
-          <div class="area-items">CPC • channels/I-O • peripheral connections</div>
+          <div class="area-items">
+            CPC basis • channels / I/O • I/O architecture basis • peripheral connection (intro)
+          </div>
         </a>
 
+        <!-- Hypervisor -->
         <a class="area-card disabled" href="#">
           <div class="area-name">Hypervisor</div>
-          <div class="area-items">LPAR • PR/SM • HMC awareness</div>
+          <div class="area-items">
+            LPAR(s) • PR/SM concept (intro) • HMC/E awareness (no config)
+          </div>
         </a>
 
+        <!-- Operating System -->
+        <a class="area-card" href="fundamentals.html">
+          <div class="area-name">Operating System (z/OS core)</div>
+          <div class="area-items">
+            z/OS architecture • address spaces • virtual storage • IPL procedure • JES & spooling • sysplex concept • virtual memory
+          </div>
+        </a>
+
+        <!-- System Software -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">System Software</div>
+          <div class="area-items">
+            CICS • IMS (transaction) • Db2 (IMSDB)
+          </div>
+        </a>
+
+        <!-- Application -->
         <a class="area-card disabled" href="#">
           <div class="area-name">Application</div>
-          <div class="area-items">USS • scripting • REXX automation</div>
+          <div class="area-items">
+            USS basics • printing awareness (AOP / IP PrintWay)
+          </div>
         </a>
 
+        <!-- Operating -->
         <a class="area-card disabled" href="#">
-          <div class="area-name">Operating (Ops/Admin)</div>
-          <div class="area-items">SDSF • monitoring • JCL • scheduling • performance management</div>
+          <div class="area-name">Operating (Operations / Admin)</div>
+          <div class="area-items">
+            TSO commands • ISPF editor • SDSF (job management / monitoring) • JES2/JES3 awareness • SMF/RMF awareness
+          </div>
         </a>
 
+        <!-- Security -->
         <a class="area-card disabled" href="#">
           <div class="area-name">Security</div>
-          <div class="area-items">RACF basic • RACF advanced</div>
+          <div class="area-items">
+            RACF concepts (user, groups) • permission basics
+          </div>
         </a>
 
+        <!-- Governance -->
         <a class="area-card disabled" href="#">
           <div class="area-name">Governance & Compliance</div>
-          <div class="area-items">competency frameworks • operational responsibility model • lifecycle/maintenance</div>
+          <div class="area-items">
+            JCL basics (JOB/EXEC/DD • COND/IF • PROC) • utilities (IEB* • SORT • IDCAMS) • scheduling concept (intro)
+          </div>
+        </a>
+      </div>
+
+      <!-- LEVEL 2 (same 8 categories, different content) -->
+      <div id="level2" class="grid areas level-grid hidden">
+        <!-- Hardware -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Hardware</div>
+          <div class="area-items">
+            HCD basic concept • IODF concept • peripheral connectivity (deeper)
+          </div>
+        </a>
+
+        <!-- Hypervisor -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Hypervisor</div>
+          <div class="area-items">
+            PR/SM (deeper) • partition awareness • configuration concepts (high-level)
+          </div>
+        </a>
+
+        <!-- Operating System -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Operating System (z/OS core)</div>
+          <div class="area-items">
+            z/OSMF awareness (as OS management layer) • TCP/IP stack awareness (deeper) • monitoring basics
+          </div>
+        </a>
+
+        <!-- System Software -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">System Software</div>
+          <div class="area-items">
+            SMP/E (software management) • install/update products • maintenance lifecycle • IWS (workload scheduling tooling)
+          </div>
+        </a>
+
+        <!-- Application -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Application</div>
+          <div class="area-items">
+            advanced REXX scripting • automation scripts • USS advanced (UNIX/Bash scripting, OVMS)
+          </div>
+        </a>
+
+        <!-- Operating -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Operating (Operations / Admin)</div>
+          <div class="area-items">
+            WLM concepts • service classes • performance monitoring (practical)
+          </div>
+        </a>
+
+        <!-- Security -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Security</div>
+          <div class="area-items">
+            RACF advanced • resource protection
+          </div>
+        </a>
+
+        <!-- Governance -->
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Governance & Compliance</div>
+          <div class="area-items">
+            DFSMS • storage/management classes • DFSMShsm • SMS policy • maintenance lifecycle (process control)
+          </div>
         </a>
       </div>
     </section>
 
     <footer class="footer">
-      <div class="muted">© <span id="year"></span> z/OS Study Hub • Built for GitHub Pages</div>
+      <div class="muted">z/OS System Administrator. © <span id="year"></span> Murat Bugdayci.</div>
     </footer>
   </main>
 
   <script>
+    // Year
     document.getElementById("year").textContent = new Date().getFullYear();
+
+    // Level toggle
+    const btnL1 = document.getElementById("btn-l1");
+    const btnL2 = document.getElementById("btn-l2");
+    const gridL1 = document.getElementById("level1");
+    const gridL2 = document.getElementById("level2");
+    const levelPill = document.getElementById("level-pill");
+
+    function setLevel(level) {
+      const isL1 = level === 1;
+
+      btnL1.classList.toggle("active", isL1);
+      btnL2.classList.toggle("active", !isL1);
+
+      btnL1.setAttribute("aria-selected", isL1 ? "true" : "false");
+      btnL2.setAttribute("aria-selected", !isL1 ? "true" : "false");
+
+      gridL1.classList.toggle("hidden", !isL1);
+      gridL2.classList.toggle("hidden", isL1);
+
+      levelPill.textContent = isL1 ? "CURRENT: LEVEL 1" : "CURRENT: LEVEL 2";
+    }
+
+    btnL1.addEventListener("click", () => setLevel(1));
+    btnL2.addEventListener("click", () => setLevel(2));
   </script>
->>>>>>> Stashed changes
 </body>
 </html>
