@@ -5,6 +5,27 @@
   <title>z/OS Fundamentals</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="assets/style.css" />
+  <style>
+    /* Small extras (safe even if style.css already has similar) */
+    .modebar { display:flex; gap:10px; align-items:center; justify-content:space-between; margin: 14px 0; }
+    .mode-left { display:flex; gap:10px; align-items:center; flex-wrap: wrap; }
+    .pill { padding: 6px 10px; border-radius: 999px; font-size: 0.85rem; border: 1px solid rgba(233,255,244,0.2); color: rgba(233,255,244,0.85); }
+    .hidden { display:none !important; }
+
+    .quiz-card { padding: 14px; border-radius: 14px; border: 1px solid rgba(233,255,244,0.14); background: rgba(10,18,14,0.55); }
+    .quiz-q { font-weight: 600; margin-bottom: 10px; }
+    .quiz-opts { display:grid; gap: 10px; }
+    .opt { display:flex; gap: 10px; align-items:flex-start; padding: 10px; border-radius: 12px; border: 1px solid rgba(233,255,244,0.12); cursor:pointer; }
+    .opt input { margin-top: 3px; }
+    .feedback { margin-top: 10px; padding: 10px; border-radius: 12px; border: 1px solid rgba(233,255,244,0.12); }
+    .feedback.good { border-color: rgba(72, 255, 170, 0.35); }
+    .feedback.bad { border-color: rgba(255, 92, 92, 0.35); }
+
+    .task { padding: 14px; border-radius: 14px; border: 1px solid rgba(233,255,244,0.14); background: rgba(10,18,14,0.55); }
+    .task h3 { margin: 0 0 8px; }
+    .task ul { margin: 8px 0 0 18px; }
+    .task details { margin-top: 10px; }
+  </style>
 </head>
 
 <body>
@@ -27,10 +48,29 @@
   </header>
 
   <main class="container">
+
+    <!-- Mode Switch (Study / Exercise) -->
     <section class="section">
-      <div class="section-title">
+      <div class="modebar">
+        <div class="mode-left">
+          <span class="pill" id="mode-pill">MODE: STUDY</span>
+
+          <div class="level-switch" role="tablist" aria-label="Mode">
+            <button class="togglebtn active" id="btn-study" role="tab" aria-selected="true">
+              STUDY
+            </button>
+            <button class="togglebtn" id="btn-ex" role="tab" aria-selected="false">
+              EXERCISE
+            </button>
+          </div>
+
+          <span class="muted">Tip: open <code>?mode=exercise</code> to land here directly.</span>
+        </div>
+
+        <a class="btn ghost" href="index.html">Back</a>
       </div>
 
+      <!-- Fundamentals topic tiles (these can also be mode-aware if you want later) -->
       <div class="grid areas">
         <a class="area-card" href="#">
           <div class="area-name">Mainframe concepts</div>
@@ -48,205 +88,286 @@
         </a>
 
         <a class="area-card" href="address-spaces.html">
-        <div class="area-name">Address Spaces</div>
+          <div class="area-name">Address Spaces</div>
           <div class="area-items">address spaces • virtual storage • IPL • JES • sysplex</div>
         </a>
       </div>
     </section>
-<section class="section">
-  <div class="section-title">
-    <h2>z/OS Fundamentals</h2>
-    <p class="muted">Write your notes here and keep everything in one place.</p>
-  </div>
 
-  <div class="panel" style="margin-top: 12px;">
-    <div class="panel-title">How to use this page</div>
-    <p style="line-height: 1.7; color: rgba(233,255,244,0.85);">
-      Add small, practical notes under each question. Keep it short per section: definition → why it matters → what you see in ops.
-    </p>
-  </div>
+    <!-- ========================= -->
+    <!-- EXERCISE MODE CONTENT     -->
+    <!-- ========================= -->
+    <section class="section hidden" id="exerciseSection">
+      <div class="section-title">
+        <h2>Exercise Mode: z/OS Fundamentals</h2>
+        <p class="muted">Answer the MCQs, then do the practical tasks. Instant feedback included.</p>
+      </div>
 
-  <div class="qa" style="margin-top: 14px;">
-    <details open class="qa-item">
-      <summary class="qa-summary">
-        1) What is z/OS?
-        <span class="qa-hint muted">click to expand/collapse</span>
-      </summary>
-      <div class="qa-body">
-        <ul class="qa-list">
-          <li>z/OS is IBM’s flagship mainframe operating system. It is a highly secure, scalable, enterprise-class OS designed to run on IBM z Systems mainframe hardware. It provides a continuously available, high-performance environment for very large workloads such as global financial systems, airline reservations, banking transactions, and government systems.
-It is the latest evolution of IBM’s mainframe OS family. Its architecture builds on decades of IBM history, evolving from older systems like MVS, OS/390 and others into a modern, 64-bit operating system.
-z/OS supports thousands of concurrent jobs and users, making it ideal for enterprise computing where reliability and uptime are critical.</li>
-<li>
+      <!-- Theory exercises (MCQ) -->
+      <div class="panel" style="margin-top: 12px;">
+        <div class="panel-title">Theory Exercises (MCQ)</div>
+        <p style="line-height: 1.7; color: rgba(233,255,244,0.85);">
+          Pick one answer per question. Then click <b>Check</b>.
+        </p>
+      </div>
 
-z/OS is the continuation of IBM’s MVS lineage: <br>
+      <div class="grid areas" style="margin-top: 12px;">
+        <!-- Q1 -->
+        <div class="quiz-card" data-q="0">
+          <div class="quiz-q">1) What is z/OS?</div>
+          <div class="quiz-opts">
+            <label class="opt"><input type="radio" name="q0" value="a" /> A Linux distribution for IBM Z</label>
+            <label class="opt"><input type="radio" name="q0" value="b" /> IBM’s mainframe operating system designed for IBM Z hardware</label>
+            <label class="opt"><input type="radio" name="q0" value="c" /> A database subsystem running on any OS</label>
+            <label class="opt"><input type="radio" name="q0" value="d" /> A terminal emulator protocol</label>
+          </div>
+          <button class="btn primary" style="margin-top:10px;" onclick="checkAnswer(0)">Check</button>
+          <div class="feedback hidden" id="fb0"></div>
+        </div>
 
-MVS (Multiple Virtual Storage) = the original multi-tasking mainframe OS concept <br>
+        <!-- Q2 -->
+        <div class="quiz-card" data-q="1">
+          <div class="quiz-q">2) What is a common way sysadmins interact with classic z/OS interfaces?</div>
+          <div class="quiz-opts">
+            <label class="opt"><input type="radio" name="q1" value="a" /> TN3270 / 3270 emulator screens</label>
+            <label class="opt"><input type="radio" name="q1" value="b" /> Android launcher widgets</label>
+            <label class="opt"><input type="radio" name="q1" value="c" /> BIOS setup menus</label>
+            <label class="opt"><input type="radio" name="q1" value="d" /> SSH only, no terminal screens exist</label>
+          </div>
+          <button class="btn primary" style="margin-top:10px;" onclick="checkAnswer(1)">Check</button>
+          <div class="feedback hidden" id="fb1"></div>
+        </div>
 
-OS/390 = a later evolution that bundled components into a cohesive OS <br>
-
-z/OS = the modern 64-bit successor, designed specifically for zArchitecture hardware <br>
-
-This continuity is intentional: many enterprise workloads written decades ago still run on z/OS systems today.</li>
-          <li>List typical subsystems and what they do (JES, CICS, Db2, IMS, TCP/IP…).</li>
-          <li>Add “how to recognize it running” (started tasks, address spaces, commands, SDSF).</li>
-        </ul>
-
-        <div class="qa-note">
-          <span class="qa-note-label">1-line useful info</span>
-          <span class="qa-note-text">Subsystems are specialized components that provide services (like batch, transaction, database, networking) on top of z/OS.</span>
+        <!-- Q3 -->
+        <div class="quiz-card" data-q="2">
+          <div class="quiz-q">3) Which statement best matches “JES” in z/OS?</div>
+          <div class="quiz-opts">
+            <label class="opt"><input type="radio" name="q2" value="a" /> A tool that formats VSAM catalogs</label>
+            <label class="opt"><input type="radio" name="q2" value="b" /> A subsystem that manages batch job entry, scheduling to execution, and output/spool</label>
+            <label class="opt"><input type="radio" name="q2" value="c" /> The kernel itself</label>
+            <label class="opt"><input type="radio" name="q2" value="d" /> A security manager (like RACF)</label>
+          </div>
+          <button class="btn primary" style="margin-top:10px;" onclick="checkAnswer(2)">Check</button>
+          <div class="feedback hidden" id="fb2"></div>
         </div>
       </div>
-    </details>
-    <details class="qa-item">
-      <summary class="qa-summary">
-        2) How System Admins Interact With z/OS: Interfaces & Legacy Methods
-        <span class="qa-hint muted">click to expand/collapse</span>
-      </summary>
-      <div class="qa-body">
-        <ul class="qa-list">
-          <li>Terminal Emulators (3270 / TN3270) <br>
 
-Mainframe consoles and user sessions traditionally use 3270 terminal protocols. These were originally hardware terminals; today, software 3270 emulators (often TN3270 over TCP/IP) let sysadmins and users interact with z/OS screens from PCs.
-<div class="image-block">
-  <img src="img/tn3270.png" 
-       alt="Example TN3270 terminal session"
-       class="content-image">
+      <!-- Practical exercises -->
+      <div class="panel" style="margin-top: 16px;">
+        <div class="panel-title">Practical Exercises</div>
+        <p style="line-height: 1.7; color: rgba(233,255,244,0.85);">
+          These are “ops style” tasks. If you don’t have a live system, treat them as paper-labs: explain what you’d do and what you expect to see.
+        </p>
+      </div>
 
-  <div class="image-caption">
-    Example TN3270 terminal session (Mocha TN3270 emulation)
-  </div>
-</div></li>
-          <li>Dataset naming rules + HLQ/qualifiers (your notes).</li>
-          <li>Dataset types you touch often (PS, PDS/PDSE, VSAM, GDG).</li>
-        </ul>
+      <div class="grid areas" style="margin-top: 12px;">
+        <div class="task">
+          <h3>Practical 1 — Identify core z/OS components</h3>
+          <div class="muted">Goal: show you understand OS vs subsystem.</div>
+          <ul>
+            <li>Write a short line explaining what an <b>address space</b> is.</li>
+            <li>List 4 subsystems/services you expect on a typical enterprise z/OS system (example: JES2, TCP/IP, RACF…).</li>
+            <li>Explain in 1–2 sentences what <b>spool</b> is used for.</li>
+          </ul>
+          <details>
+            <summary class="muted">Reveal expected answer shape</summary>
+            <div style="margin-top:10px;">
+              <ul>
+                <li>Address space: isolated virtual memory environment for running work.</li>
+                <li>Subsystem examples: JES2/JES3, TCP/IP, RACF, WLM, SDSF, CICS/Db2/IMS (depends on shop).</li>
+                <li>Spool: disk-based queue for job input/output and print data so work can be scheduled/managed reliably.</li>
+              </ul>
+            </div>
+          </details>
+        </div>
 
-        <div class="qa-note">
-          <span class="qa-note-label">1-line useful info</span>
-          <span class="qa-note-text">In z/OS, a dataset is the basic “file” concept, and catalog entries tell the system where the data lives.</span>
+        <div class="task">
+          <h3>Practical 2 — “Legacy method” workflow (TSO/ISPF)</h3>
+          <div class="muted">Goal: demonstrate classic navigation.</div>
+          <ul>
+            <li>Describe how you’d go to ISPF <b>3.4</b> and list datasets under your HLQ.</li>
+            <li>Name one reason sites still rely on <b>3270 screens</b> today.</li>
+            <li>Write 2 things you can check in SDSF related to jobs.</li>
+          </ul>
+          <details>
+            <summary class="muted">Reveal hints</summary>
+            <div style="margin-top:10px;">
+              <ul>
+                <li>ISPF 3.4 = dataset list utility; filter like <code>HLQ.*</code></li>
+                <li>3270 persists because it’s fast, stable, and integrated with legacy workflows/tools.</li>
+                <li>SDSF: job status, output, JES queues, spool files, return codes, syslog.</li>
+              </ul>
+            </div>
+          </details>
         </div>
       </div>
-    </details>
-    <details class="qa-item">
-      <summary class="qa-summary">
-        2) TSO/ISPF navigation + datasets basics
-        <span class="qa-hint muted">click to expand/collapse</span>
-      </summary>
-      <div class="qa-body">
-        <p class="muted">Your answer:</p>
-        <ul class="qa-list">
-          <li>Common ISPF panels you use (e.g., 3.4, editor, command line habits).</li>
-          <li>Dataset naming rules + HLQ/qualifiers (your notes).</li>
-          <li>Dataset types you touch often (PS, PDS/PDSE, VSAM, GDG).</li>
-        </ul>
+    </section>
 
-        <div class="qa-note">
-          <span class="qa-note-label">1-line useful info</span>
-          <span class="qa-note-text">In z/OS, a dataset is the basic “file” concept, and catalog entries tell the system where the data lives.</span>
-        </div>
+    <!-- ========================= -->
+    <!-- STUDY MODE CONTENT (yours) -->
+    <!-- ========================= -->
+    <section class="section" id="studySection">
+      <div class="section-title">
+        <h2>z/OS Fundamentals</h2>
+        <p class="muted">Write your notes here and keep everything in one place.</p>
       </div>
-    </details>
 
-    <details class="qa-item">
-      <summary class="qa-summary">
-        3) Address spaces + virtual storage
-        <span class="qa-hint muted">click to expand/collapse</span>
-      </summary>
-      <div class="qa-body">
-        <p class="muted">Your answer:</p>
-        <ul class="qa-list">
-          <li>Define address space in your own words and how it relates to isolation.</li>
-          <li>Explain virtual storage at a high level (private/common, paging terms as you like).</li>
-          <li>Write down what you check when something “runs out of storage”.</li>
-        </ul>
-
-        <div class="qa-note">
-          <span class="qa-note-label">1-line useful info</span>
-          <span class="qa-note-text">Each address space gets its own virtual storage view, which is why many workloads can run safely side-by-side.</span>
-        </div>
-
-        <div style="margin-top: 12px;">
-          <a class="btn primary" href="address-spaces.html">Go to: Address Spaces page</a>
-        </div>
+      <div class="panel" style="margin-top: 12px;">
+        <div class="panel-title">How to use this page</div>
+        <p style="line-height: 1.7; color: rgba(233,255,244,0.85);">
+          Add small, practical notes under each question. Keep it short per section: definition → why it matters → what you see in ops.
+        </p>
       </div>
-    </details>
 
-    <details class="qa-item">
-      <summary class="qa-summary">
-        4) IPL + JES + job lifecycle
-        <span class="qa-hint muted">click to expand/collapse</span>
-      </summary>
-      <div class="qa-body">
-        <p class="muted">Your answer:</p>
-        <ul class="qa-list">
-          <li>What IPL means for you operationally (what starts, what must come up).</li>
-          <li>What JES does and why spooling exists.</li>
-          <li>Job states (from submission → execution → output) in your words.</li>
-        </ul>
+      <div class="qa" style="margin-top: 14px;">
+        <details open class="qa-item">
+          <summary class="qa-summary">
+            1) What is z/OS?
+            <span class="qa-hint muted">click to expand/collapse</span>
+          </summary>
+          <div class="qa-body">
+            <ul class="qa-list">
+              <li>z/OS is IBM’s mainframe operating system designed for IBM Z hardware. It is built for secure, scalable, continuously available enterprise workloads.</li>
+              <li>Lineage: MVS → OS/390 → z/OS (compatibility and long-lived workloads matter). <details class="code-solution">
 
-        <div class="qa-note">
-          <span class="qa-note-label">1-line useful info</span>
-          <span class="qa-note-text">JES manages batch work by reading jobs, queuing them (spool), selecting execution, and handling output.</span>
-        </div>
+</details></li>
+              <li>Typical subsystems: JES, TCP/IP, RACF, WLM, CICS/Db2/IMS (shop dependent).</li>
+            </ul>
+
+            <div class="qa-note">
+              <span class="qa-note-label">1-line useful info</span>
+              <span class="qa-note-text">Subsystems provide services (batch, networking, security, transactions, databases) on top of z/OS.</span>
+            </div>
+          </div>
+        </details>
+
+        <details class="qa-item">
+          <summary class="qa-summary">
+            2) How System Admins Interact With z/OS: Interfaces & Legacy Methods
+            <span class="qa-hint muted">click to expand/collapse</span>
+          </summary>
+          <div class="qa-body">
+            <ul class="qa-list">
+              <li>Terminal emulators (3270 / TN3270) remain common: classic, fast, reliable operational workflows.</li>
+              <li>TSO provides command interaction; ISPF provides menus, tools, and editors.</li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="qa-item">
+          <summary class="qa-summary">
+            3) Address spaces + virtual storage
+            <span class="qa-hint muted">click to expand/collapse</span>
+          </summary>
+          <div class="qa-body">
+            <ul class="qa-list">
+              <li>Each address space has its own virtual storage view (isolation).</li>
+              <li>Paging/swapping concepts apply when memory is pressured.</li>
+            </ul>
+
+            <div style="margin-top: 12px;">
+              <a class="btn primary" href="address-spaces.html">Go to: Address Spaces page</a>
+            </div>
+          </div>
+        </details>
       </div>
-    </details>
 
-    <details class="qa-item">
-      <summary class="qa-summary">
-        5) Sysplex overview
-        <span class="qa-hint muted">click to expand/collapse</span>
-      </summary>
-      <div class="qa-body">
-        <p class="muted">Your answer:</p>
-        <ul class="qa-list">
-          <li>Why sysplex exists (availability, scaling, workload distribution).</li>
-          <li>What changes in operations when you have multiple images.</li>
-          <li>Terms you want to remember (keep this list small).</li>
-        </ul>
-
-        <div class="qa-note">
-          <span class="qa-note-label">1-line useful info</span>
-          <span class="qa-note-text">A sysplex lets multiple z/OS systems cooperate as one environment for resilience and shared workload.</span>
+      <section class="section sources" style="margin-top: 16px;">
+        <div class="section-title">
+          <h2>Sources & References</h2>
         </div>
-      </div>
-    </details>
-  </div>
-</section>
-<section class="section sources">
-  <div class="section-title">
-    <h2>Sources & References</h2>
-  </div>
+        <div class="panel">
+          <ul class="source-list">
+            <li>
+              <a href="https://www.ibm.com/docs/en/zos-basic-skills?topic=systems-mainframe-operating-system-zos" target="_blank">
+                IBM Docs: Mainframe operating system: z/OS
+              </a>
+            </li>
+            <li>
+              <a href="https://www.redbooks.ibm.com/" target="_blank">
+                IBM Redbooks (search: “Introduction to z/OS”, “TSO/ISPF”, “JES2”)
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+    </section>
 
-  <div class="panel">
-    <ul class="source-list">
-
-      <li>
-        <a href="https://www.ibm.com/docs/en/zos-basic-skills?topic=systems-mainframe-operating-system-zos" target="_blank">
-          IBM Mainframe operating system: z/OS
-        </a>
-      </li>
-
-      <li>
-        <a href="https://openmainframeproject.org/blog/an-introduction-to-mvs-ibm-mainframe-and-z-os/" target="_blank">
-          Open Mainframe Project: An Introduction to MVS, IBM Mainframe and z/OS
-        </a>
-      </li>
-
-      <li>
-        <a href="https://en.wikipedia.org/wiki/3270_emulator" target="_blank">
-          Wikipedia: 3270 emulator
-        </a>
-      </li>
-        <li>
-        <a href="https://www.redbooks.ibm.com/abstracts/crse0304.html" target="_blank">
-            IBM Redbooks: Introduction to z/OS
-        </a>
-      </li>
-    </ul>
-  </div>
-</section>
   </main>
-  
-</body>
 
+  <script>
+    // --- Mode system: study vs exercise ---
+    const btnStudy = document.getElementById("btn-study");
+    const btnEx = document.getElementById("btn-ex");
+    const pill = document.getElementById("mode-pill");
+    const studySection = document.getElementById("studySection");
+    const exerciseSection = document.getElementById("exerciseSection");
+
+    function getModeFromURL() {
+      const params = new URLSearchParams(window.location.search);
+      return (params.get("mode") || "study").toLowerCase();
+    }
+
+    function setMode(mode, pushState=true) {
+      const isExercise = mode === "exercise";
+
+      btnStudy.classList.toggle("active", !isExercise);
+      btnEx.classList.toggle("active", isExercise);
+      btnStudy.setAttribute("aria-selected", isExercise ? "false" : "true");
+      btnEx.setAttribute("aria-selected", isExercise ? "true" : "false");
+
+      pill.textContent = isExercise ? "MODE: EXERCISE" : "MODE: STUDY";
+
+      studySection.classList.toggle("hidden", isExercise);
+      exerciseSection.classList.toggle("hidden", !isExercise);
+
+      if (pushState) {
+        const url = new URL(window.location.href);
+        if (isExercise) url.searchParams.set("mode", "exercise");
+        else url.searchParams.delete("mode");
+        window.history.replaceState({}, "", url);
+      }
+    }
+
+    btnStudy.addEventListener("click", () => setMode("study"));
+    btnEx.addEventListener("click", () => setMode("exercise"));
+
+    // init on load
+    setMode(getModeFromURL(), false);
+
+    // --- MCQ checker ---
+    const ANSWERS = [
+      {
+        correct: "b",
+        explain: "z/OS is IBM’s enterprise mainframe OS for IBM Z hardware, designed for secure, high-volume workloads."
+      },
+      {
+        correct: "a",
+        explain: "Classic interaction is often via 3270/TN3270 emulators, plus TSO/ISPF tools."
+      },
+      {
+        correct: "b",
+        explain: "JES manages batch job entry, queues/spool, execution selection, and output handling."
+      }
+    ];
+
+    function checkAnswer(qIndex) {
+      const name = "q" + qIndex;
+      const selected = document.querySelector(`input[name="${name}"]:checked`);
+      const fb = document.getElementById("fb" + qIndex);
+
+      fb.classList.remove("hidden", "good", "bad");
+
+      if (!selected) {
+        fb.classList.add("bad");
+        fb.textContent = "Pick an option first.";
+        return;
+      }
+
+      const isCorrect = selected.value === ANSWERS[qIndex].correct;
+      fb.classList.add(isCorrect ? "good" : "bad");
+      fb.textContent = (isCorrect ? "✅ Correct. " : "❌ Not quite. ") + ANSWERS[qIndex].explain;
+    }
+  </script>
+</body>
 </html>

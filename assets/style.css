@@ -311,6 +311,10 @@ a:hover{ text-decoration: none; }
   background: rgba(255,255,255,0.03);
   padding: 14px;
   transition: transform .12s ease, border-color .12s ease;
+  padding: 1.6rem;        /* more internal space */
+  min-height: 150px;      /* increases card height */
+  font-size: 1.05rem;     /* slightly larger text */
+  border-radius: 14px;    /* optional visual polish */
 }
 
 .area-card:hover{
@@ -473,4 +477,115 @@ a:hover{ text-decoration: none; }
   border-radius: 18px;
   background: linear-gradient(180deg, #07130f, #020504);
   border: 1px solid rgba(51,255,153,0.35);
+}
+/* =========================
+   Readability Boost
+   (paste at bottom so it overrides)
+   ========================= */
+
+:root{
+  /* Increase base size slightly */
+  --base-font: 16px;
+  --body-line: 1.55;
+}
+
+/* Global base */
+html{ font-size: var(--base-font); }
+body{ line-height: var(--body-line); }
+
+/* General text */
+.muted{ opacity: 0.92; } /* a bit more readable */
+
+/* Top nav + brand */
+.brand-title{ font-size: 16px; }
+.brand-subtitle{ font-size: 14px; }
+.topnav a{ font-size: 14px; }
+
+/* Buttons + pills */
+.btn{ font-size: 14px; }
+.pill{ font-size: 13px; }
+.togglebtn{ font-size: 14px; }
+
+/* Cards */
+.card-title{ font-size: 14px; }
+.card-desc{ font-size: 14px; }
+
+/* Competency cards */
+.area-name{ font-size: 15px; }
+.area-items{ font-size: 14.5px; line-height: 1.5; }
+
+/* Q&A accordion */
+.qa-summary{ font-size: 15px; }
+.qa-body{ font-size: 14.5px; line-height: 1.65; }
+.qa-note-text{ font-size: 14.5px; }
+
+/* Panel titles */
+.panel-title{ font-size: 14px; }
+
+/* Make code/mono text a bit bigger too */
+code, pre, .terminal-frame{
+  font-size: 14px;
+  line-height: 1.55;
+}
+body::before{ opacity: 0.05; }  /* scanlines less intense */
+.led{ box-shadow: 0 0 10px rgba(51,255,153,0.55); }
+/* Code snippet (terminal style) */
+.code-solution{
+  border: 1px solid rgba(233,255,244,0.12);
+  border-radius: 18px;
+  background: rgba(255,255,255,0.02);
+  overflow: hidden;
+}
+
+.code-solution__summary{
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-weight: 900;
+  color: rgba(233,255,244,0.9);
+  border-bottom: 1px solid rgba(233,255,244,0.10);
+}
+
+.code-solution__summary::-webkit-details-marker{ display:none; }
+
+.code-solution__label{
+  color: rgba(52,212,255,0.95); /* cyan label like your screenshot */
+  letter-spacing: 0.5px;
+}
+
+.code-solution__hint{ color: var(--muted); font-weight: 600; font-size: 12px; }
+
+.code-solution__body{ padding: 14px; }
+
+.terminal{
+  margin: 0;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #07130f, #020504);
+  border: 1px solid rgba(51,255,153,0.35);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+  overflow: auto;
+}
+
+.terminal code{
+  font-family: var(--mono);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--accent); /* terminal green */
+  white-space: pre;     /* keep formatting */
+}
+
+.explain{
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(233,255,244,0.10);
+  background: rgba(10,24,18,0.50);
+  color: rgba(233,255,244,0.85);
+  line-height: 1.65;
 }

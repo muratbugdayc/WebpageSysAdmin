@@ -28,8 +28,7 @@
   <main class="container">
     <section class="hero">
       <div class="hero-left">
-        <h1>Learn z/OS like a sysprog</h1>
-        <p class="muted">Abdul</p>
+        <h1>Learn z/OS</h1>
 
         <div class="cta-row">
           <a class="btn primary" href="fundamentals.html">Start: z/OS Core</a>
@@ -45,19 +44,22 @@
             LEVEL 2
           </button>
         </div>
-
-        <div class="statusline">
-          <span class="pill" id="level-pill">CURRENT: LEVEL 1</span>
-          <span class="pill">STATUS: ONLINE</span>
-          <span class="pill">MODE: STUDY</span>
-        </div>
+        <!-- Mode toggle -->
+<div class="level-switch" role="tablist" aria-label="Mode">
+  <button class="togglebtn active" id="btn-study" role="tab" aria-selected="true">
+    STUDY MODE
+  </button>
+  <button class="togglebtn" id="btn-ex" role="tab" aria-selected="false">
+    EXERCISE MODE
+  </button>
+</div>
       </div>
 
       <div class="hero-right">
         <div class="panel">
           <div class="panel-title">Console Note</div>
           <p style="line-height: 1.65; color: rgba(233,255,244,0.85);">
-            Remember to loot every red item in arena breakout before selami does.
+            Remember to loot every red item.
           </p>
         </div>
       </div>
@@ -88,7 +90,10 @@
         </a>
 
         <!-- Operating System -->
-        <a class="area-card" href="fundamentals.html">
+       <a class="area-card"
+   href="fundamentals.html"
+   data-study-href="fundamentals.html"
+   data-exercise-href="exercises/h1os.html">
           <div class="area-name">Operating System (z/OS core)</div>
           <div class="area-items">
             z/OS architecture • address spaces • virtual storage • IPL procedure • JES & spooling • sysplex concept • virtual memory
@@ -237,6 +242,50 @@
 
     btnL1.addEventListener("click", () => setLevel(1));
     btnL2.addEventListener("click", () => setLevel(2));
+     // Mode toggle
+  const btnStudy = document.getElementById("btn-study");
+  const btnEx = document.getElementById("btn-ex");
+
+  let currentMode = "study"; // "study" | "exercise"
+  let currentLevel = 1;
+
+  function applyModeToCards() {
+    const cards = document.querySelectorAll(".area-card:not(.disabled)");
+    cards.forEach(card => {
+      const href = currentMode === "exercise"
+        ? card.dataset.exerciseHref
+        : card.dataset.studyHref;
+
+      if (href) card.setAttribute("href", href);
+    });
+  }
+
+  function setMode(mode) {
+    currentMode = mode;
+
+    const isStudy = mode === "study";
+    btnStudy.classList.toggle("active", isStudy);
+    btnEx.classList.toggle("active", !isStudy);
+
+    btnStudy.setAttribute("aria-selected", isStudy ? "true" : "false");
+    btnEx.setAttribute("aria-selected", !isStudy ? "true" : "false");
+
+    applyModeToCards();
+  }
+
+  // Hook into your existing setLevel(level) function:
+  const originalSetLevel = setLevel;
+  setLevel = function(level) {
+    currentLevel = level;
+    originalSetLevel(level);
+    applyModeToCards();
+  };
+
+  btnStudy.addEventListener("click", () => setMode("study"));
+  btnEx.addEventListener("click", () => setMode("exercise"));
+
+  // run once on load
+  applyModeToCards();
   </script>
 </body>
 </html>
