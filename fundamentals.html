@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>z/OS Fundamentals</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="led"></span>
+      <div>
+        <div class="brand-title">z/OS Study Hub</div>
+        <div class="brand-subtitle">Fundamentals</div>
+      </div>
+    </div>
+
+    <nav class="topnav">
+      <a href="index.html">Home</a>
+      <a href="slides.html">Slides</a>
+      <a href="theory.html">Theory</a>
+      <a href="practical.html">Practical</a>
+      <a href="tests.html">Self Tests</a>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="section">
+      <div class="section-title">
+        <h2>z/OS Basics / Fundamentals</h2>
+        <p class="muted">Start with the “core mental model”.</p>
+      </div>
+
+      <div class="grid areas">
+        <a class="area-card" href="#">
+          <div class="area-name">Mainframe concepts</div>
+          <div class="area-items">What a “system” is, workloads, reliability, partitions, consoles</div>
+        </a>
+
+        <a class="area-card" href="#">
+          <div class="area-name">z/OS architecture overview</div>
+          <div class="area-items">kernel pieces, subsystems, where JES/CICS/Db2 fit</div>
+        </a>
+
+        <a class="area-card" href="#">
+          <div class="area-name">TSO / ISPF</div>
+          <div class="area-items">navigating datasets, editor basics, 3.4, 6, 8…</div>
+        </a>
+
+        <a class="area-card" href="address-spaces.html">
+        <div class="area-name">Address Spaces</div>
+          <div class="area-items">address spaces • virtual storage • IPL • JES • sysplex</div>
+        </a>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>Suggested learning path</h2>
+        <p class="muted">A simple order that matches real admin work.</p>
+      </div>
+
+      <ol style="margin-left: 18px; line-height: 1.7; color: rgba(233,255,244,0.85);">
+        <li>What is z/OS + what runs on it (subsystems)</li>
+        <li>TSO/ISPF navigation + datasets basics</li>
+        <li>Address spaces + virtual storage</li>
+        <li>IPL + JES + job lifecycle</li>
+        <li>Sysplex overview</li>
+      </ol>
+    </section>
+  </main>
+</body>
+</html>

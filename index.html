@@ -2,24 +2,151 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Competency Framework – z/OS System Administrator</title>
+  <title>z/OS Study Hub – System Admin</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="assets/style.css" />
 </head>
+
 <body>
-  <h1>Competency Framework – z/OS System Administrator Level 1 & 2</h1>
+  <header class="topbar">
+    <div class="brand">
+      <span class="led"></span>
+      <div>
+        <div class="brand-title">z/OS Study Hub</div>
+        <div class="brand-subtitle">Competency Framework • System Administrator L1–L2</div>
+      </div>
+    </div>
 
-  <h2>z/OS Fundamentals</h2>
-  <ul>
-    <li>Understanding mainframe concepts</li>
-    <li>Basic z/OS architecture</li>
-    <li>Working with TSO/ISPF</li>
-  </ul>
+    <nav class="topnav">
+      <a href="slides.html">Slides</a>
+      <a href="theory.html">Theory</a>
+      <a href="practical.html">Practical</a>
+      <a href="tests.html">Self Tests</a>
+    </nav>
+  </header>
 
+<<<<<<< Updated upstream
   <h2>Navigation</h2>
   <ul>
     <li><a href="slides.html">Slides</a></li>
     <li><a href="theory.html">Theory Exercises</a></li>
     <li><a href="practical.html">Practical Exercises</a></li>
   </ul>
+=======
+  <main class="container">
+    <section class="hero">
+      <div class="hero-left">
+        <h1>Learn z/OS like a sysprog</h1>
+        <p class="muted">
+          A structured, mainframe-themed knowledge base covering hardware, z/OS core, system software,
+          operations, security, and governance.
+        </p>
+
+        <div class="cta-row">
+          <a class="btn primary" href="fundamentals.html">
+            Start: z/OS Basics / Fundamentals
+          </a>
+          <a class="btn ghost" href="roadmap.html">
+            View Roadmap
+          </a>
+        </div>
+
+        <div class="statusline">
+          <span class="pill">STATUS: ONLINE</span>
+          <span class="pill">MODE: STUDY</span>
+          <span class="pill">TARGET: L1 → L2</span>
+        </div>
+      </div>
+
+      <div class="hero-right">
+        <div class="panel">
+          <div class="panel-title">Quick Topics</div>
+          <div class="grid">
+            <a class="card" href="fundamentals.html">
+              <div class="card-title">z/OS Core</div>
+              <div class="card-desc">Address spaces, virtual storage, IPL, JES, sysplex…</div>
+              <div class="card-tag">Start here</div>
+            </a>
+
+            <a class="card disabled" href="#">
+              <div class="card-title">Hardware</div>
+              <div class="card-desc">CPC, channels/I-O, peripherals…</div>
+              <div class="card-tag">Coming next</div>
+            </a>
+
+            <a class="card disabled" href="#">
+              <div class="card-title">Security</div>
+              <div class="card-desc">RACF basics + advanced…</div>
+              <div class="card-tag">Planned</div>
+            </a>
+
+            <a class="card disabled" href="#">
+              <div class="card-title">Operations</div>
+              <div class="card-desc">SDSF, monitoring, scheduling, performance…</div>
+              <div class="card-tag">Planned</div>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-title">
+        <h2>Competency Areas</h2>
+        <p class="muted">This mirrors your full list — we’ll fill these out page-by-page.</p>
+      </div>
+
+      <div class="grid areas">
+        <a class="area-card" href="fundamentals.html">
+          <div class="area-name">Operating System (z/OS core)</div>
+          <div class="area-items">address spaces • virtual storage • IPL • JES • sysplex • datasets • DFSMS • TCP/IP</div>
+        </a>
+
+        <a class="area-card disabled" href="#">
+          <div class="area-name">System Software</div>
+          <div class="area-items">CICS • IMS • Db2 • SMP/E • z/OSMF • WLM • SMF/RMF • VTAM • SNA • IWS/TWS</div>
+        </a>
+
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Hardware</div>
+          <div class="area-items">CPC • channels/I-O • peripheral connections</div>
+        </a>
+
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Hypervisor</div>
+          <div class="area-items">LPAR • PR/SM • HMC awareness</div>
+        </a>
+
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Application</div>
+          <div class="area-items">USS • scripting • REXX automation</div>
+        </a>
+
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Operating (Ops/Admin)</div>
+          <div class="area-items">SDSF • monitoring • JCL • scheduling • performance management</div>
+        </a>
+
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Security</div>
+          <div class="area-items">RACF basic • RACF advanced</div>
+        </a>
+
+        <a class="area-card disabled" href="#">
+          <div class="area-name">Governance & Compliance</div>
+          <div class="area-items">competency frameworks • operational responsibility model • lifecycle/maintenance</div>
+        </a>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="muted">© <span id="year"></span> z/OS Study Hub • Built for GitHub Pages</div>
+    </footer>
+  </main>
+
+  <script>
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+>>>>>>> Stashed changes
 </body>
 </html>
