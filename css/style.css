@@ -147,9 +147,10 @@ li { margin-bottom: .45rem; }
   border-bottom: 2px solid var(--border);
   box-shadow: 0 0 30px rgba(57,255,20,.22), 0 2px 0 var(--green-dim);
   padding: 0 1.5rem;
-  position: sticky;
-  top: 0;
-  z-index: 100;
+}
+
+body.in-topic .level-toggle {
+  display: none;
 }
 
 .site-header::before {
@@ -922,10 +923,11 @@ li { margin-bottom: .45rem; }
 }
 
 .mcq-option.option-selected {
-  border-color: var(--blue-dim);
+  border-color: var(--blue);
   background: var(--blue-bg);
   color: var(--blue);
-  text-shadow: 0 0 5px rgba(68,138,255,.5);
+  text-shadow: 0 0 8px rgba(68,138,255,.7);
+  box-shadow: inset 3px 0 0 var(--blue), 0 0 10px rgba(68,138,255,.25);
 }
 
 .mcq-option.option-correct {

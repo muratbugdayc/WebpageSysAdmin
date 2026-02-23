@@ -40,6 +40,7 @@ function handleRoute() {
       state.view = 'topic';
       state.topicId = topic.id;
       state.activeTab = parts[2] || 'overview';
+      document.body.classList.add('in-topic');
       renderTopicView(topic);
       return;
     }
@@ -47,6 +48,7 @@ function handleRoute() {
 
   state.view = 'home';
   state.topicId = null;
+  document.body.classList.remove('in-topic');
   renderHomeView();
 }
 
@@ -343,13 +345,28 @@ function renderMCQ(topic) {
 }
 
 function selectAnswer(questionIndex, choiceIndex) {
+  const wasNew = !(questionIndex in state.mcqState.selected);
   state.mcqState.selected[questionIndex] = choiceIndex;
+
+  // Highlight the selected option and deselect siblings
+  document.querySelectorAll(`input[name="q${questionIndex}"]`).forEach(input => {
+    const label = input.closest('.mcq-option');
+    if (!label) return;
+    if (parseInt(input.value) === choiceIndex) {
+      label.classList.add('option-selected');
+    } else {
+      label.classList.remove('option-selected');
+    }
+  });
+
   // Update progress counter without full re-render
-  const bar = document.querySelector('.mcq-progress');
-  if (bar) {
-    const answered = Object.keys(state.mcqState.selected).length;
-    const total = topics.find(t => t.id === state.topicId)?.mcq.length ?? 0;
-    bar.textContent = `${answered} / ${total} answered`;
+  if (wasNew) {
+    const bar = document.querySelector('.mcq-progress');
+    if (bar) {
+      const answered = Object.keys(state.mcqState.selected).length;
+      const total = topics.find(t => t.id === state.topicId)?.mcq.length ?? 0;
+      bar.textContent = `${answered} / ${total} answered`;
+    }
   }
 }
 
