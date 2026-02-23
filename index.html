@@ -2,291 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>z/OS Study Hub – System Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="assets/style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>z/OS COMPETENCY FRAMEWORK // PIP-BOY 3000</title>
+  <meta name="description" content="Competency Framework for z/OS System Administrators — Level 1 and Level 2" />
+  <!-- Google Fonts: VT323 for display, Share Tech Mono for body terminal text -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💾</text></svg>" />
 </head>
-
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="led"></span>
-      <div>
-        <div class="brand-title">Competency Framework • System Administrator L1–L2</div>
-        <div class="brand-subtitle"></div>
-      </div>
-    </div>
+  <!-- CRT scanline + vignette overlay (purely decorative) -->
+  <div class="crt-overlay" aria-hidden="true"></div>
 
-    <nav class="topnav">
-      <a href="slides.html">Slides</a>
-      <a href="theory.html">Theory</a>
-      <a href="practical.html">Practical</a>
-      <a href="tests.html">Self Tests</a>
-    </nav>
+  <!-- ══════════════════════════════════════════════════════════
+       HEADER — always visible, sticky
+  ═══════════════════════════════════════════════════════════ -->
+  <header class="site-header">
+    <div class="header-inner">
+
+      <!-- Branding -->
+      <a href="#" class="header-brand" style="text-decoration:none;color:inherit;">
+        <span class="header-icon" aria-hidden="true">[ ■ ]</span>
+        <div>
+          <p class="header-title">Z/OS COMPETENCY FRAMEWORK</p>
+          <p class="header-subtitle">&gt;&gt; SYS ADMIN CERTIFICATION // LVL 1 &amp; LVL 2</p>
+        </div>
+      </a>
+
+      <!-- Level filter toggle -->
+      <nav class="level-toggle" aria-label="Filter by level">
+        <button class="level-btn active" data-level="all"  aria-pressed="true">All</button>
+        <button class="level-btn"        data-level="1"    aria-pressed="false">Level 1</button>
+        <button class="level-btn"        data-level="2"    aria-pressed="false">Level 2</button>
+      </nav>
+
+    </div>
   </header>
 
-  <main class="container">
-    <section class="hero">
-      <div class="hero-left">
-        <h1>Learn z/OS</h1>
-
-        <div class="cta-row">
-          <a class="btn primary" href="fundamentals.html">Start: z/OS Core</a>
-          <a class="btn ghost" href="roadmap.html">View Roadmap</a>
-        </div>
-
-        <!-- Level toggle -->
-        <div class="level-switch" role="tablist" aria-label="Competency Level">
-          <button class="togglebtn active" id="btn-l1" role="tab" aria-selected="true" aria-controls="level1">
-            LEVEL 1
-          </button>
-          <button class="togglebtn" id="btn-l2" role="tab" aria-selected="false" aria-controls="level2">
-            LEVEL 2
-          </button>
-        </div>
-        <!-- Mode toggle -->
-<div class="level-switch" role="tablist" aria-label="Mode">
-  <button class="togglebtn active" id="btn-study" role="tab" aria-selected="true">
-    STUDY MODE
-  </button>
-  <button class="togglebtn" id="btn-ex" role="tab" aria-selected="false">
-    EXERCISE MODE
-  </button>
-</div>
-      </div>
-
-      <div class="hero-right">
-        <div class="panel">
-          <div class="panel-title">Console Note</div>
-          <p style="line-height: 1.65; color: rgba(233,255,244,0.85);">
-            .
-          </p>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-  <div class="section-title">
-    <h2>Competency Areas</h2>
-    <p class="muted">Level 1 vs Level 2 content changes per category.</p>
-  </div>
-
-  <!-- LEVEL 1 -->
-  <div id="level1" class="grid areas level-grid">
-
-    <!-- Platform Fundamentals -->
-    <a class="area-card" href="fundamentals.html">
-      <div class="area-name">Platform Fundamentals (z/OS Core)</div>
-      <div class="area-items">
-        z/OS architecture • address spaces • virtual storage • virtual memory • IPL procedure • I/O architecture • JES & spooling • sysplex concept
-      </div>
-    </a>
-
-    <!-- Hardware & Virtualization -->
-    <a class="area-card disabled" href="#">
-      <div class="area-name">Hardware & Virtualization</div>
-      <div class="area-items">
-        CPC basics • LPAR • HMC basics • channels / I/O
-      </div>
-    </a>
-
-    <!-- Storage & Data Management -->
-    <a class="area-card disabled" href="#">
-      <div class="area-name">Storage & Data Management</div>
-      <div class="area-items">
-        DASD • datasets • PDS/PDSE • VSAM files • GDG • ICF catalog • VTOC • tapes & RMM
-      </div>
-    </a>
-
-    <!-- System Operations & Tools -->
-    <a class="area-card disabled" href="#">
-      <div class="area-name">System Operations & Tools</div>
-      <div class="area-items">
-        TSO • ISPF • SDSF • USS basics • JES2/JES3 awareness • SMF • RMF
-      </div>
-    </a>
-
-    <!-- Batch Processing & JCL -->
-    <a class="area-card disabled" href="#">
-      <div class="area-name">Batch Processing & JCL</div>
-      <div class="area-items">
-        JOB/EXEC/DD • parameters • COND • IF/THEN/ELSE • PROC concept • return codes • IEBGENER • IEBDCOPY • IEFBR14 • SORT • IDCAMS
-      </div>
-    </a>
-
-    <!-- Automation & Scripting -->
-    <a class="area-card disabled" href="#">
-      <div class="area-name">Automation & Scripting</div>
-      <div class="area-items">
-        REXX basics • automation concepts • scheduling concepts
-      </div>
-    </a>
-
-    <!-- Subsystems & Middleware -->
-    <a class="area-card disabled" href="#">
-      <div class="area-name">Subsystems & Middleware</div>
-      <div class="area-items">
-        CICS intro • IMS intro • Db2 intro • IMSDB intro
-      </div>
-    </a>
-
-    <!-- Networking & Security -->
-    <a class="area-card disabled" href="#">
-      <div class="area-name">Networking & Security</div>
-      <div class="area-items">
-        FTP basics • TCP/IP intro • VTAM intro • RACF basics
-      </div>
-    </a>
-
-  </div>
-
-  <!-- LEVEL 2 -->
-  <div id="level2" class="grid areas level-grid hidden">
-
-    <!-- Platform Fundamentals -->
-    <a class="area-card disabled">
-      <div class="area-name">Platform Fundamentals (z/OS Core)</div>
-      <div class="area-items">
-        z/OSMF • deeper system architecture awareness
-      </div>
-    </a>
-
-    <!-- Hardware & Virtualization -->
-    <a class="area-card disabled">
-      <div class="area-name">Hardware & Virtualization</div>
-      <div class="area-items">
-        HCD • IODF • advanced peripheral connectivity
-      </div>
-    </a>
-
-    <!-- Storage & Data Management -->
-    <a class="area-card disabled">
-      <div class="area-name">Storage & Data Management</div>
-      <div class="area-items">
-        DFSMS • storage classes • management classes • DFSMShsm • SMS policy
-      </div>
-    </a>
-
-    <!-- System Operations & Tools -->
-    <a class="area-card disabled">
-      <div class="area-name">System Operations & Tools</div>
-      <div class="area-items">
-        USS advanced • monitoring • WLM practical
-      </div>
-    </a>
-
-    <!-- Batch Processing & JCL -->
-    <a class="area-card disabled">
-      <div class="area-name">Batch Processing & JCL</div>
-      <div class="area-items">
-        advanced PROC usage • restart/recovery concepts • workload scheduling awareness
-      </div>
-    </a>
-
-    <!-- Automation & Scripting -->
-    <a class="area-card disabled">
-      <div class="area-name">Automation & Scripting</div>
-      <div class="area-items">
-        advanced REXX • automation scripting • integration with system tools
-      </div>
-    </a>
-
-    <!-- Subsystems & Middleware -->
-    <a class="area-card disabled">
-      <div class="area-name">Subsystems & Middleware</div>
-      <div class="area-items">
-        MQ • SMP/E • software lifecycle • IWS
-      </div>
-    </a>
-
-    <!-- Networking & Security -->
-    <a class="area-card disabled">
-      <div class="area-name">Networking & Security</div>
-      <div class="area-items">
-        TCP/IP stack awareness • FTP config • RACF advanced • resource protection
-      </div>
-    </a>
-
-  </div>
-</section>
-
-    <footer class="footer">
-      <div class="muted">z/OS System Administrator. © <span id="year"></span> Murat Bugdayci.</div>
-    </footer>
+  <!-- ══════════════════════════════════════════════════════════
+       MAIN — dynamic content injected by app.js
+  ═══════════════════════════════════════════════════════════ -->
+  <main id="app" role="main" aria-live="polite">
+    <!-- Content is rendered by JavaScript -->
+    <div class="empty-state">
+      <div class="empty-icon">⏳</div>
+      <p>Loading…</p>
+    </div>
   </main>
 
-  <script>
-    // Year
-    document.getElementById("year").textContent = new Date().getFullYear();
+  <!-- ══════════════════════════════════════════════════════════
+       FOOTER
+  ═══════════════════════════════════════════════════════════ -->
+  <footer class="site-footer">
+    [ Z/OS SYSADMIN COMPETENCY FRAMEWORK ] &mdash; BACHELOR&apos;S THESIS PROOF OF CONCEPT
+    <span class="footer-blink">█</span>
+  </footer>
 
-    // Level toggle
-    const btnL1 = document.getElementById("btn-l1");
-    const btnL2 = document.getElementById("btn-l2");
-    const gridL1 = document.getElementById("level1");
-    const gridL2 = document.getElementById("level2");
-    const levelPill = document.getElementById("level-pill");
+  <!-- Scripts: data first, then app logic -->
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
 
-    function setLevel(level) {
-      const isL1 = level === 1;
-
-      btnL1.classList.toggle("active", isL1);
-      btnL2.classList.toggle("active", !isL1);
-
-      btnL1.setAttribute("aria-selected", isL1 ? "true" : "false");
-      btnL2.setAttribute("aria-selected", !isL1 ? "true" : "false");
-
-      gridL1.classList.toggle("hidden", !isL1);
-      gridL2.classList.toggle("hidden", isL1);
-
-      levelPill.textContent = isL1 ? "CURRENT: LEVEL 1" : "CURRENT: LEVEL 2";
-    }
-
-    btnL1.addEventListener("click", () => setLevel(1));
-    btnL2.addEventListener("click", () => setLevel(2));
-     // Mode toggle
-  const btnStudy = document.getElementById("btn-study");
-  const btnEx = document.getElementById("btn-ex");
-
-  let currentMode = "study"; // "study" | "exercise"
-  let currentLevel = 1;
-
-  function applyModeToCards() {
-    const cards = document.querySelectorAll(".area-card:not(.disabled)");
-    cards.forEach(card => {
-      const href = currentMode === "exercise"
-        ? card.dataset.exerciseHref
-        : card.dataset.studyHref;
-
-      if (href) card.setAttribute("href", href);
-    });
-  }
-
-  function setMode(mode) {
-    currentMode = mode;
-
-    const isStudy = mode === "study";
-    btnStudy.classList.toggle("active", isStudy);
-    btnEx.classList.toggle("active", !isStudy);
-
-    btnStudy.setAttribute("aria-selected", isStudy ? "true" : "false");
-    btnEx.setAttribute("aria-selected", !isStudy ? "true" : "false");
-
-    applyModeToCards();
-  }
-
-  // Hook into your existing setLevel(level) function:
-  const originalSetLevel = setLevel;
-  setLevel = function(level) {
-    currentLevel = level;
-    originalSetLevel(level);
-    applyModeToCards();
-  };
-
-  btnStudy.addEventListener("click", () => setMode("study"));
-  btnEx.addEventListener("click", () => setMode("exercise"));
-
-  // run once on load
-  applyModeToCards();
-  </script>
 </body>
 </html>
