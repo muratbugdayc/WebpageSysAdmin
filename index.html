@@ -59,155 +59,156 @@
         <div class="panel">
           <div class="panel-title">Console Note</div>
           <p style="line-height: 1.65; color: rgba(233,255,244,0.85);">
-            Remember to loot every red item.
+            .
           </p>
         </div>
       </div>
     </section>
 
     <section class="section">
-      <div class="section-title">
-        <h2>Competency Areas</h2>
-        <p class="muted">Level 1 vs Level 2 content changes per category.</p>
+  <div class="section-title">
+    <h2>Competency Areas</h2>
+    <p class="muted">Level 1 vs Level 2 content changes per category.</p>
+  </div>
+
+  <!-- LEVEL 1 -->
+  <div id="level1" class="grid areas level-grid">
+
+    <!-- Platform Fundamentals -->
+    <a class="area-card" href="fundamentals.html">
+      <div class="area-name">Platform Fundamentals (z/OS Core)</div>
+      <div class="area-items">
+        z/OS architecture • address spaces • virtual storage • virtual memory • IPL procedure • I/O architecture • JES & spooling • sysplex concept
       </div>
+    </a>
 
-      <!-- LEVEL 1 (8 categories) -->
-      <div id="level1" class="grid areas level-grid">
-        <!-- Hardware -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Hardware</div>
-          <div class="area-items">
-            CPC basis • channels / I/O • I/O architecture basis • peripheral connection (intro)
-          </div>
-        </a>
-
-        <!-- Hypervisor -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Hypervisor</div>
-          <div class="area-items">
-            LPAR(s) • PR/SM concept (intro) • HMC/E awareness (no config)
-          </div>
-        </a>
-
-        <!-- Operating System -->
-       <a class="area-card"
-   href="fundamentals.html"
-   data-study-href="fundamentals.html"
-   data-exercise-href="exercises/h1os.html">
-          <div class="area-name">Operating System (z/OS core)</div>
-          <div class="area-items">
-            z/OS architecture • address spaces • virtual storage • IPL procedure • JES & spooling • sysplex concept • virtual memory
-          </div>
-        </a>
-
-        <!-- System Software -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">System Software</div>
-          <div class="area-items">
-            CICS • IMS (transaction) • Db2 (IMSDB)
-          </div>
-        </a>
-
-        <!-- Application -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Application</div>
-          <div class="area-items">
-            USS basics • printing awareness (AOP / IP PrintWay)
-          </div>
-        </a>
-
-        <!-- Operating -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Operating (Operations / Admin)</div>
-          <div class="area-items">
-            TSO commands • ISPF editor • SDSF (job management / monitoring) • JES2/JES3 awareness • SMF/RMF awareness
-          </div>
-        </a>
-
-        <!-- Security -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Security</div>
-          <div class="area-items">
-            RACF concepts (user, groups) • permission basics
-          </div>
-        </a>
-
-        <!-- Governance -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Governance & Compliance</div>
-          <div class="area-items">
-            JCL basics (JOB/EXEC/DD • COND/IF • PROC) • utilities (IEB* • SORT • IDCAMS) • scheduling concept (intro)
-          </div>
-        </a>
+    <!-- Hardware & Virtualization -->
+    <a class="area-card disabled" href="#">
+      <div class="area-name">Hardware & Virtualization</div>
+      <div class="area-items">
+        CPC basics • LPAR • HMC basics • channels / I/O
       </div>
+    </a>
 
-      <!-- LEVEL 2 (same 8 categories, different content) -->
-      <div id="level2" class="grid areas level-grid hidden">
-        <!-- Hardware -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Hardware</div>
-          <div class="area-items">
-            HCD basic concept • IODF concept • peripheral connectivity (deeper)
-          </div>
-        </a>
-
-        <!-- Hypervisor -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Hypervisor</div>
-          <div class="area-items">
-            PR/SM (deeper) • partition awareness • configuration concepts (high-level)
-          </div>
-        </a>
-
-        <!-- Operating System -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Operating System (z/OS core)</div>
-          <div class="area-items">
-            z/OSMF awareness (as OS management layer) • TCP/IP stack awareness (deeper) • monitoring basics
-          </div>
-        </a>
-
-        <!-- System Software -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">System Software</div>
-          <div class="area-items">
-            SMP/E (software management) • install/update products • maintenance lifecycle • IWS (workload scheduling tooling)
-          </div>
-        </a>
-
-        <!-- Application -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Application</div>
-          <div class="area-items">
-            advanced REXX scripting • automation scripts • USS advanced (UNIX/Bash scripting, OVMS)
-          </div>
-        </a>
-
-        <!-- Operating -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Operating (Operations / Admin)</div>
-          <div class="area-items">
-            WLM concepts • service classes • performance monitoring (practical)
-          </div>
-        </a>
-
-        <!-- Security -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Security</div>
-          <div class="area-items">
-            RACF advanced • resource protection
-          </div>
-        </a>
-
-        <!-- Governance -->
-        <a class="area-card disabled" href="#">
-          <div class="area-name">Governance & Compliance</div>
-          <div class="area-items">
-            DFSMS • storage/management classes • DFSMShsm • SMS policy • maintenance lifecycle (process control)
-          </div>
-        </a>
+    <!-- Storage & Data Management -->
+    <a class="area-card disabled" href="#">
+      <div class="area-name">Storage & Data Management</div>
+      <div class="area-items">
+        DASD • dataset types • sequential datasets • PDS/PDSE • VSAM • GDG • ICF catalog • VTOC • tapes • RMM
       </div>
-    </section>
+    </a>
+
+    <!-- System Operations & Tools -->
+    <a class="area-card disabled" href="#">
+      <div class="area-name">System Operations & Tools</div>
+      <div class="area-items">
+        TSO • ISPF • SDSF • USS basics • JES2/JES3 awareness • SMF • RMF
+      </div>
+    </a>
+
+    <!-- Batch Processing & JCL -->
+    <a class="area-card disabled" href="#">
+      <div class="area-name">Batch Processing & JCL</div>
+      <div class="area-items">
+        JOB/EXEC/DD • parameters • COND • IF/THEN/ELSE • PROC concept • return codes • IEBGENER • IEBDCOPY • IEFBR14 • SORT • IDCAMS
+      </div>
+    </a>
+
+    <!-- Automation & Scripting -->
+    <a class="area-card disabled" href="#">
+      <div class="area-name">Automation & Scripting</div>
+      <div class="area-items">
+        REXX basics • automation concepts • scheduling concepts
+      </div>
+    </a>
+
+    <!-- Subsystems & Middleware -->
+    <a class="area-card disabled" href="#">
+      <div class="area-name">Subsystems & Middleware</div>
+      <div class="area-items">
+        CICS intro • IMS intro • Db2 intro
+      </div>
+    </a>
+
+    <!-- Networking & Security -->
+    <a class="area-card disabled" href="#">
+      <div class="area-name">Networking & Security</div>
+      <div class="area-items">
+        FTP basics • TCP/IP intro • VTAM intro • RACF basics
+      </div>
+    </a>
+
+  </div>
+
+  <!-- LEVEL 2 -->
+  <div id="level2" class="grid areas level-grid hidden">
+
+    <!-- Platform Fundamentals -->
+    <a class="area-card disabled">
+      <div class="area-name">Platform Fundamentals (z/OS Core)</div>
+      <div class="area-items">
+        z/OSMF • deeper system architecture awareness
+      </div>
+    </a>
+
+    <!-- Hardware & Virtualization -->
+    <a class="area-card disabled">
+      <div class="area-name">Hardware & Virtualization</div>
+      <div class="area-items">
+        HCD • IODF • advanced peripheral connectivity
+      </div>
+    </a>
+
+    <!-- Storage & Data Management -->
+    <a class="area-card disabled">
+      <div class="area-name">Storage & Data Management</div>
+      <div class="area-items">
+        DFSMS • storage classes • management classes • DFSMShsm • SMS policy
+      </div>
+    </a>
+
+    <!-- System Operations & Tools -->
+    <a class="area-card disabled">
+      <div class="area-name">System Operations & Tools</div>
+      <div class="area-items">
+        USS advanced • monitoring • WLM practical
+      </div>
+    </a>
+
+    <!-- Batch Processing & JCL -->
+    <a class="area-card disabled">
+      <div class="area-name">Batch Processing & JCL</div>
+      <div class="area-items">
+        advanced PROC usage • restart/recovery concepts • workload scheduling awareness
+      </div>
+    </a>
+
+    <!-- Automation & Scripting -->
+    <a class="area-card disabled">
+      <div class="area-name">Automation & Scripting</div>
+      <div class="area-items">
+        advanced REXX • automation scripting • integration with system tools
+      </div>
+    </a>
+
+    <!-- Subsystems & Middleware -->
+    <a class="area-card disabled">
+      <div class="area-name">Subsystems & Middleware</div>
+      <div class="area-items">
+        MQ • SMP/E • software lifecycle • IWS
+      </div>
+    </a>
+
+    <!-- Networking & Security -->
+    <a class="area-card disabled">
+      <div class="area-name">Networking & Security</div>
+      <div class="area-items">
+        TCP/IP stack awareness • FTP config • RACF advanced • resource protection
+      </div>
+    </a>
+
+  </div>
+</section>
 
     <footer class="footer">
       <div class="muted">z/OS System Administrator. © <span id="year"></span> Murat Bugdayci.</div>
