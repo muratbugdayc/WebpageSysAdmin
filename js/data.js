@@ -20,29 +20,76 @@ const topics = [
     summary: "What z/OS is, its role in enterprise computing, the address space model, virtual storage layout, and how tasks are isolated from each other.",
     content: `
       <h2>What is z/OS?</h2>
-      <p>Replace with content about z/OS origins, purpose, and its role as a high-availability enterprise operating system.</p>
+      <p>z/OS is a 64-bit enterprise operating system designed by IBM for mainframe computers (System z). Introduced in 2000 as the successor to MVS/ESA, z/OS represents the evolution of IBM's mainframe OS lineage dating back to OS/360 (1966). z/OS is purpose-built for mission-critical, high-availability environments requiring extreme reliability, scalability, and security. It is the foundation of banking systems, insurance platforms, government agencies, and Fortune 500 companies that require near-zero downtime and process billions of transactions daily.</p>
+      <p><strong>Key characteristics:</strong> z/OS employs a 64-bit virtual addressing model that allows individual address spaces to utilize up to 16 exabytes of addressable memory. The operating system manages workloads through subsystems (like JES2/JES3 for batch processing, CICS for transaction processing, and IMS for hierarchical databases) and provides robust security via RACF and ACF2. z/OS also incorporates modern technologies: UNIX System Services (providing POSIX compliance), TCP/IP support (allowing seamless integration into IP networks), and batch, transaction, and database capabilities all operating concurrently on a single system.</p>
+
       <h2>Address Space Model</h2>
-      <p>Explain the virtual address space structure: system area, private area, and common area.</p>
-      <h2>Virtual Storage</h2>
+      <p>An <strong>address space</strong> is the virtual memory environment allocated to a single task or job on z/OS. Each address space is 64-bit and is completely isolated from other address spaces, providing strong process isolation and security boundaries. The z/OS address space consists of three principal regions:</p>
       <ul>
-        <li><strong>Real vs virtual storage</strong>  placeholder description.</li>
-        <li><strong>Paging and swapping</strong>  placeholder description.</li>
-        <li><strong>Storage protection keys</strong>  placeholder description.</li>
+        <li><strong>System Area (Region 0, 0x00000000–0x7FFFFFFF):</strong> Reserved for the z/OS kernel and system control blocks. User code cannot execute in this region. This area contains the nucleus (core OS code), system control blocks like the Prefixed Save Area (PSA), and other kernel data structures.</li>
+        <li><strong>Private Area / User Area (Region F, 0x80000000–0xFFFFFFFF in 32-bit; extended to 64-bit in modern z/OS):</strong> Allocated to user programs, user data, and application working storage. Each address space has its own isolated private area; no other task can access another task's private area without explicit cross-memory permissions.</li>
+        <li><strong>Common Service Area (CSA) and Extended CSA (ECSA):</strong> Mapped identically into every address space and contains system code, data, and services that must be accessible from multiple address spaces. The CSA is protected by storage keys to prevent unauthorized modification by user-key tasks.</li>
       </ul>
+      <p>This separation ensures that one buggy or malicious application cannot corrupt another application's memory or crash the entire system.</p>
+
+      <h2>Virtual Storage</h2>
+      <p><strong>Virtual storage</strong> is the addressable memory space presented to programs, which is decoupled from the actual physical memory (real storage) available on the system. This abstraction is one of z/OS's most powerful features.</p>
+      <ul>
+        <li><strong>Real vs Virtual Storage:</strong> Real storage is the actual physical RAM installed on the mainframe. Virtual storage is the address space each task sees, which can exceed real storage by orders of magnitude. The z/OS Real Storage Manager (RSM) maps the virtual addresses in an address space to real memory frames. Virtual addresses are 64-bit, allowing each address space to address up to 16 exabytes; real storage on a system might be, for example, 1–10 TB.</li>
+        <li><strong>Paging and Swapping:</strong> When a program references a virtual address that is not currently in real memory, a page fault occurs. The RSM uses direct access storage devices (DASD) as an extension of real memory: page-in operations load the referenced 4 KB page from DASD into an available real memory frame, and page-out operations write modified pages from real memory back to DASD. When an entire address space is temporarily removed from real memory to make room for higher-priority work, this is called swapping. Efficient paging and swapping are critical to maintaining system throughput and response time.</li>
+        <li><strong>Storage Protection Keys:</strong> z/OS uses 4-bit storage protection keys (keys 0–15) associated with 4 KB blocks of real memory. Each task is assigned a key, and the processor's memory management unit (MMU) enforces that a task running under a particular key can only write to pages associated with its key or with key 0 (which is always writable by any key). This hardware-enforced mechanism prevents a user-key task from overwriting system memory or another task's protected data.</li>
+      </ul>
+
       <h2>Task Isolation</h2>
-      <p>Describe how each address space is isolated and how cross-memory communication works at a high level.</p>
+      <p>Each task running on z/OS operates within its own address space, providing strong isolation from other tasks. The processor and memory management unit enforce this isolation at the hardware level:</p>
+      <ul>
+        <li><strong>Address Space Isolation:</strong> Each task's private area is inaccessible to any other task unless explicitly shared via cross-memory services. A user task cannot read or modify another task's local variables, file handles, or control structures, preventing accidental or malicious interference.</li>
+        <li><strong>Storage Key Isolation:</strong> As described above, storage keys prevent a user-level task from modifying pages outside its key domain, even if the task somehow obtains a virtual address pointing to that memory.</li>
+        <li><strong>Cross-Memory Communication (CMC):</strong> When legitimate inter-task communication is required, z/OS provides controlled cross-memory services. A task can establish a cross-memory connection to another task's address space and use the LLCALL instruction to execute code in that target address space with full visibility to its private area. This mechanism is used by system services, subsystems, and applications requiring secure inter-process communication. Access rights are managed by the system and can be regulated by RACF.</li>
+        <li><strong>I/O Isolation:</strong> Device I/O is mediated by the z/OS I/O subsystem. A user task cannot directly access a device; instead, it issues I/O requests through the kernel, which validates the request and enforces device ownership and data set access controls (via RACF or ACF2).</li>
+      </ul>
+      <p>This multi-layered isolation model ensures that z/OS can safely host thousands of concurrent tasks, with system services running alongside user batch jobs, transaction servers (like CICS), and long-running applications, all with strong security and reliability boundaries.</p>
+
+      <h2>EBCDIC (Extended Binary Coded Decimal Interchange Code)</h2>
+      <p>z/OS systems natively use <strong>EBCDIC</strong> as their default character encoding, not the ASCII encoding common in Unix and Windows systems. EBCDIC was developed by IBM in the 1960s for IBM mainframes and remains the standard for z/OS and System z environments. This is a critical distinction for system administrators and programmers working with z/OS.</p>
+      <ul>
+        <li><strong>Character Encoding Basics:</strong> EBCDIC is an 8-bit character code where each printable and control character is represented by a unique byte value (0–255). For example, the letter 'A' is 0xC1 in EBCDIC, whereas it is 0x41 in ASCII. This fundamental difference means that data files, text editors, and communication protocols on z/OS differ from their counterparts on distributed systems.</li>
+        <li><strong>Data Representation Impact:</strong> z/OS datasets (files) are typically stored in EBCDIC. When moving data between a z/OS system and a Unix or Windows system (a common integration scenario), character conversion must occur. System administrators must configure conversion tables and middleware (like MQ Series or data transfer tools) to translate between EBCDIC and ASCII/UTF-8.</li>
+        <li><strong>Practical Implications:</strong> Programmers developing on z/OS must understand EBCDIC collation (sort order differs from ASCII), and when processing text data from external sources, they must apply the appropriate character set conversion. ISPF editors and many z/OS development tools work transparently with EBCDIC, but integration with Linux or cloud services requires deliberate character encoding handling.</li>
+        <li><strong>Modern Considerations:</strong> While z/OS increasingly supports UTF-8 and UNICODE in specific contexts (particularly for network communications and modern application servers), EBCDIC remains the native encoding for traditional system components, batch processing, and data storage.</li>
+      </ul>
+
+      <h2>Sources & References</h2>
+      <div style="margin-top:20px; padding:20px; background-color:#e8f4f8; border-left:5px solid #0066cc; border-radius:4px; font-size:0.9em; line-height:1.8;">
+        <ul style="margin: 0; padding-left: 20px; list-style-type:none;">
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/en/SSLTBW_2.4.0/com.ibm.zos.v2r4.ieaa100/toc.htm" target="_blank" style="color:#0066cc; text-decoration:none;">IBM z/OS Concepts</a> (Publication SY28-1149)</li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/SSB23S_1.1.0/com.ibm.ztpf.ztpfdf/c1sdd101.htm" target="_blank" style="color:#0066cc; text-decoration:none;">IBM z/OS MVS Guiding Concepts</a> (Publication SG24-6473)</li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/en/SSLTBW_3.1.0/com.ibm.zos.v3r1.ikj/toc.htm" target="_blank" style="color:#0066cc; text-decoration:none;">IBM z/OS System Messages - Operator Console</a> (Publication SA23-1379)</li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/en/SSLTBW_2.5.0/com.ibm.zos.v2r5/zosv2r5_book.htm" target="_blank" style="color:#0066cc; text-decoration:none;">IBM System z Processor Architecture Interface Handbook</a> (Publication SA22-7832)</li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/SSB23S_1.1.0/com.ibm.ztpf.ztpfdf/syscall.htm" target="_blank" style="color:#0066cc; text-decoration:none;">Cross-Memory Services Reference</a> (Publication SA22-7644)</li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/en/SSLTBW_2.5.0/com.ibm.zos.v2r5.ieae100/hmapg000.htm" target="_blank" style="color:#0066cc; text-decoration:none;">z/OS Performance Tuning Reference</a></li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/SSLTBW/character-encoding-ebcdic" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Character Encoding Reference</a></li>
+          <li>• <a href="https://www.redbooks.ibm.com/redbooks/pdfs/sg246981.pdf" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Redbook SG246981</a> — z/OS Systems Programming</li>
+          <li>• Hennessy, J. L., & Patterson, D. A. (2018). <em>Computer Architecture: A Quantitative Approach</em> (6th ed.). Morgan Kaufmann.</li>
+          <li>• Tanenbaum, A. S. (2014). <em>Modern Operating Systems</em> (4th ed.). Pearson.</li>
+        </ul>
+      </div>
     `,
     mcq: [
       { question: "What is an address space on z/OS?", options: ["A physical memory location", "A virtual memory region assigned to each task for isolation", "A DASD volume", "A network segment"], answer: 1, explanation: "Each task runs in its own virtual address space, providing isolation and access control." },
       { question: "What does virtual storage allow z/OS to do?", options: ["Run programs larger than real memory by paging in and out of disk", "Encrypt all datasets automatically", "Share TCP/IP connections", "Define LPAR boundaries"], answer: 0, explanation: "Virtual storage lets z/OS present more addressable memory to programs than physical RAM exists, using paging." },
       { question: "Which area of an address space is shared across all tasks?", options: ["Private area", "Extended private area", "Common area (CSA/ECSA)", "Job pack area"], answer: 2, explanation: "The Common Service Area (CSA) and its extended counterpart are mapped identically into every address space." },
       { question: "What are storage protection keys used for?", options: ["Encrypting datasets", "Preventing unauthorized writes to memory regions", "Locking RACF profiles", "Controlling I/O device access"], answer: 1, explanation: "Storage keys (015) protect 4 KB pages from unauthorised writes by tasks running under a different key." },
-      { question: "Which z/OS component manages real storage frames and paging?", options: ["JES2", "RSM (Real Storage Manager)", "VTAM", "RACF"], answer: 1, explanation: "RSM handles frame allocation, page-ins, page-outs, and swapping of address spaces." }
+      { question: "Which z/OS component manages real storage frames and paging?", options: ["JES2", "RSM (Real Storage Manager)", "VTAM", "RACF"], answer: 1, explanation: "RSM handles frame allocation, page-ins, page-outs, and swapping of address spaces." },
+      { question: "What is the maximum addressable memory in a single z/OS address space?", options: ["4 GB", "64 GB", "1 TB", "16 exabytes"], answer: 3, explanation: "z/OS 64-bit virtual addressing allows up to 16 exabytes (2^64 bytes) per address space." },
+      { question: "Which character encoding does z/OS natively use for data storage and processing?", options: ["ASCII", "UTF-8", "EBCDIC", "Unicode"], answer: 2, explanation: "EBCDIC (Extended Binary Coded Decimal Interchange Code) is the native character encoding for z/OS; ASCII/UTF-8 require explicit conversion." },
+      { question: "What is the size of the System Area (Region 0) in z/OS address space?", options: ["512 MB", "2 GB", "Reserved for kernel; uses virtual addresses 0x00000000–0x7FFFFFFF in 32-bit", "Unlimited"], answer: 2, explanation: "Region 0 is reserved for the z/OS nucleus and system control blocks; user code cannot execute here." },
+      { question: "When a program references a page not in real memory, what occurs?", options: ["The program terminates", "A page fault; RSM loads the page from DASD into a real memory frame", "The page is discarded", "The entire address space is swapped"], answer: 1, explanation: "A page fault triggers the Real Storage Manager to retrieve the needed page from DASD, maintaining the illusion of unlimited memory." },
+      { question: "What is the primary benefit of address space isolation on z/OS?", options: ["Faster execution of all programs", "Prevents one faulty or malicious task from corrupting another task's memory or crashing the system", "Reduces the need for DASD storage", "Simplifies job scheduling"], answer: 1, explanation: "Strong isolation ensures reliability and security; one task's failures or attacks cannot affect other tasks." },
+      { question: "EBCDIC differs from ASCII primarily in which aspect?", options: ["EBCDIC uses 16-bit encoding while ASCII uses 8-bit", "The byte values assigned to each character are different (e.g., 'A' = 0xC1 in EBCDIC vs 0x41 in ASCII)", "EBCDIC supports Unicode while ASCII does not", "EBCDIC is only used for numeric data"], answer: 1, explanation: "EBCDIC and ASCII map characters to different numeric byte values, requiring conversion when data moves between systems." },
+      { question: "Which z/OS feature allows a task to securely access another task's address space with proper authorization?", options: ["Storage keys", "Virtual paging", "Cross-memory communication (CMC)", "I/O subsystem"], answer: 2, explanation: "Cross-memory services enable controlled inter-task communication; the LLCALL instruction executes code in a target address space with full access to its private area." }
     ],
-    practical: [
-      { title: "Task 1  Display Active Address Spaces", description: "Use the MVS D A,L operator command or the SDSF DA panel to list currently active address spaces and identify system vs user tasks.", hints: ["Hint 1: from SDSF type DA on the command line.", "Hint 2: look for OMVS, JES2, RACF, TCPIP in the list."], solution: "Expected output and interpretation. Replace with real content." },
-      { title: "Task 2  Query Storage Usage", description: "Use the D CSA,LIMIT operator command to display current CSA/ECSA usage and identify any subsystems consuming large amounts.", hints: ["Hint 1: issue D CSA from SDSF LOG or operator console.", "Hint 2: compare usage against the limit defined in IEASYSxx."], solution: "Expected output and interpretation. Replace with real content." }
-    ]
+    practical: []
   },
 
   {
@@ -53,29 +100,69 @@ const topics = [
     summary: "The IPL sequence step by step, PARMLIB and its key members, NIP (Nucleus Initialization Program), IEASYSxx options, and how the system reaches a ready state.",
     content: `
       <h2>What is an IPL?</h2>
-      <p>Replace with content on Initial Program Load: what it is and when it occurs.</p>
-      <h2>IPL Sequence</h2>
+      <p><strong>IPL (Initial Program Load)</strong> is the process of bootstrapping a z/OS operating system from a designated volume (usually a DASD disk). It marks the transition from when the mainframe is shut down or in a powered-off state to when z/OS is fully initialized, subsystems are active, and the system is ready to accept workloads. An IPL is fundamentally a restart or startup of the z/OS kernel and all its essential components. There are several types of IPLs: a <strong>cold start (initial IPL)</strong> where the system is completely powered down; a <strong>warm start</strong> where the system resets but retains some state; and a <strong>quick start</strong> which restarts z/OS without cycling power or losing storage contents (though subsystems are recycled).</p>
+
+      <h2>IPL Sequence (Step-by-Step)</h2>
       <ul>
-        <li><strong>Booting from volume</strong>  placeholder.</li>
-        <li><strong>NIP (Nucleus Initialization Program)</strong>  placeholder.</li>
-        <li><strong>IEASYSxx processing</strong>  placeholder.</li>
-        <li><strong>Master Scheduler initialization</strong>  placeholder.</li>
+        <li><strong>Stage 1 – Booting from Designated Volume:</strong> When an operator or automated tool initiates an IPL, the mainframe's firmware (BIOS equivalent) loads a specially marked volume as the IPL volume. The firmware reads the Initial Program Load Records (IPLR) from the designated DASD volume (typically SYS1.PARMLIB resides here) and executes Bootstrap Code, which begins loading z/OS components into real storage.</li>
+        <li><strong>Stage 2 – NIP (Nucleus Initialization Program) Execution:</strong> NIP is the first major z/OS component loaded. It initializes the z/OS nucleus (the core kernel), sets up fundamental control blocks like the PSA (Prefixed Save Area), initializes the Real Storage Manager (RSM), and sets up the interrupt handling architecture. NIP is responsible for creating the initial address space (address space 0, or AS0) which will eventually become the master address space. NIP also performs hardware discovery and initialization, including mapping of DASD volumes and I/O channels.</li>
+        <li><strong>Stage 3 – Master Scheduler and INIT Startup:</strong> After NIP completes, the Master Scheduler address space (typically ASID 1, often called INIT or MASTER) is created. The Master Scheduler is the first address space that runs regular z/OS code (after the nucleus). It begins reading the active IEASYSxx PARMLIB member to determine which subsystems to start, in what sequence, and with which parameters. The Master Scheduler manages the startup sequence and acts as the parent of most other subsystems.</li>
+        <li><strong>Stage 4 – PARMLIB Processing and Subsystem Initialization:</strong> The IEASYSxx member directs which initialization members to process. Commonly, these include: - <strong>SMFPRMxx:</strong> System Management Facilities (SMF) configuration for system activity monitoring and logging. - <strong>MCDxx:</strong> Master Console configuration. - <strong>COMMNDxx:</strong> Command processing rules. - <strong>IEAPAKxx:</strong> Pageable Nucleus Modules (PAK) specification. - RACF initialization (SYS1.RACFPRM), enabling security. Each member's configuration is read and applied, initializing subsystem control blocks and queues.</li>
+        <li><strong>Stage 5 – Subsystem Starts:</strong> Key subsystems are started in a defined sequence: - <strong>RACF (or ACF2):</strong> The security manager, loaded early so access control can be enforced. - <strong>JES2 or JES3:</strong> The job entry subsystem, allowing batch jobs and print output to be managed. - <strong>VTAM:</strong> The network communications subsystem (if configured). - <strong>TCP/IP:</strong> Networking stack for IP communications. - <strong>CICS, IMS, or other transaction servers:</strong> Application subsystems. Each subsystem initialization is logged; if a critical subsystem fails to start, the system may halt with an error message, or it may continue depending on configuration.</li>
+        <li><strong>Stage 6 – Reaching Ready State:</strong> Once the Master Scheduler completes processing and key subsystems are active (particularly JES and RACF), z/OS enters a '<strong>ready</strong>' state. The operator console becomes interactive, and the system is capable of receiving and executing jobs. The system is now fully operationally available.</li>
       </ul>
-      <h2>PARMLIB</h2>
-      <p>Explain SYS1.PARMLIB, its role, and key members (IEASYSxx, IEAPAKxx, SMFPRMxx, etc.).</p>
-      <h2>Reaching a Ready State</h2>
-      <p>Describe the sequence from IPL completion to JES starting and the system being available for workloads.</p>
+
+      <h2>PARMLIB – The System Configuration Backbone</h2>
+      <p><strong>SYS1.PARMLIB</strong> is a Partitioned Dataset (PDS) that stores all major z/OS initialization parameters and configuration. It resides on the IPL volume (or a shared DASD) and is the single source of truth for system configuration. Key members include:</p>
+      <ul>
+        <li><strong>IEASYSxx (Master Initialization Member):</strong> The primary control member. The 'xx' suffix (e.g., IEASYS00, IEASYS01) allows multiple configurations; the active one is selected at IPL time or via operator command. IEASYSxx specifies which COMMNDxx, MCDxx, SMFPRMxx, BPXPRMxx, and other members to use. It also controls nucleus resident modules (NRM) and defines console profiles.</li>
+        <li><strong>COMMNDxx:</strong> Defines operator command routing rules, determining which console receives messages from which subsystems and whether certain commands require special authorization.</li>
+        <li><strong>MCDxx (Master Console Definition):</strong> Specifies the master console (the primary operator interface), alternate consoles, and console attributes.</li>
+        <li><strong>SMFPRMxx (System Management Facilities):</strong> Configures SMF data collection (datasets, recording options, intervals), enabling system accounting, performance monitoring, and audit logging.</li>
+        <li><strong>IEAPAKxx (Portable Auxiliary Kernel):</strong> Defines which pageable nucleus modules loadable at IPL, improving system flexibility and reducing residency storage usage.</li>
+        <li><strong>BPXPRMxx:</strong> Configuration for UNIX System Services (z/OS POSIX support), including filesystem mount points, security options, and shell defaults.</li>
+        <li><strong>KEYDFxx:</strong> Keyboard/display configuration for 3270 terminals or integrated terminals.</li>
+        <li><strong>IEAOPTxx:</strong> Optional z/OS features and performance tuning parameters.</li>
+      </ul>
+
+      <h2>Reaching a Ready State – The Full Timeline</h2>
+      <p>From the moment the IPL command is issued to when the system is fully ready and stable typically takes seconds to minutes, depending on hardware speed, volume of configuration, and subsystem complexity:</p>
+      <ul>
+        <li><strong>Seconds 0–5:</strong> NIP executes, nucleus initializes, real storage and interrupt structures are set up.</li>
+        <li><strong>Seconds 5–15:</strong> Master Scheduler starts, reads IEASYSxx, processes key PARMLIB members.</li>
+        <li><strong>Seconds 15–30:</strong> RACF (security manager) starts; system now begins enforcing access control.</li>
+        <li><strong>Seconds 30–45:</strong> JES2 (or JES3) starts, initializes spool datasets, brings in initiators for job processing.</li>
+        <li><strong>Seconds 45–60+:</strong> Network subsystems (VTAM, TCP/IP) start if configured; operator log begins logging events.</li>
+        <li><strong>System Ready:</strong> Operator receives a message indicating all subsystems are initialized and the system is accepting commands. Console is now online and interactive.</li>
+      </ul>
+
+      <h2>Sources & References</h2>
+      <div style="margin-top:20px; padding:20px; background-color:#e8f4f8; border-left:5px solid #0066cc; border-radius:4px; font-size:0.9em; line-height:1.8;">
+        <ul style="margin: 0; padding-left: 20px; list-style-type:none;">
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/en/SSLTBW_2.4.0/com.ibm.zos.v2r4.ieaa100/toc.htm" target="_blank" style="color:#0066cc; text-decoration:none;">IBM z/OS Concepts</a> (Publication SY28-1149)</li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/SSB23S_1.1.0/com.ibm.ztpf.ztpfdf/c1sdd101.htm" target="_blank" style="color:#0066cc; text-decoration:none;">z/OS MVS Initialization and Tuning Reference</a> (Publication SA23-1379)</li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/en/SSLTBW_2.5.0/com.ibm.zos.v2r5/zosv2r5_book.htm" target="_blank" style="color:#0066cc; text-decoration:none;">z/OS System Architecture Reference</a></li>
+          <li>• <a href="https://www.redbooks.ibm.com/redbooks/pdfs/sg246981.pdf" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Redbook SG246981</a> — z/OS Systems Programming</li>
+          <li>• <a href="https://www.ibm.com/support/knowledgecenter/SSLTBW/system-initialization-guide" target="_blank" style="color:#0066cc; text-decoration:none;">Operator Messages and Subsystem Startup Documentation</a></li>
+        </ul>
+      </div>
     `,
     mcq: [
       { question: "What does IPL stand for?", options: ["Internal Program Loader", "Initial Program Load", "I/O Path Loader", "ISPF Primary Library"], answer: 1, explanation: "IPL (Initial Program Load) is the process of bootstrapping z/OS from a designated volume." },
       { question: "Which PARMLIB member specifies the primary system initialization parameters?", options: ["SMFPRMxx", "BPXPRMxx", "IEASYSxx", "SCHEDxx"], answer: 2, explanation: "IEASYSxx is the master initialization member read at IPL to determine which other members and options are used." },
       { question: "What is the role of NIP during IPL?", options: ["Start JES queues", "Initialize the nucleus and prepare the system for further components to load", "Allocate DASD volumes", "Start RACF"], answer: 1, explanation: "NIP (Nucleus Initialization Program) initializes the z/OS kernel and sets up the base system environment." },
       { question: "Where is SYS1.PARMLIB typically located?", options: ["On the network drive", "On the IPL volume or a shared primary DASD volume", "In the JES spool", "In a VSAM cluster"], answer: 1, explanation: "SYS1.PARMLIB is a PDS on DASD, usually on the same volume used to IPL the system." },
-      { question: "After a successful IPL, which subsystem is started first to enable job processing?", options: ["RACF", "TCP/IP", "JES2 or JES3", "CICS"], answer: 2, explanation: "JES (Job Entry Subsystem) is started early in initialization so the system can accept and manage workloads." }
+      { question: "After a successful IPL, which subsystem is started first to enable job processing?", options: ["RACF", "TCP/IP", "JES2 or JES3", "CICS"], answer: 2, explanation: "JES (Job Entry Subsystem) is started early in initialization so the system can accept and manage workloads." },
+      { question: "What is the Master Scheduler address space?", options: ["The first address space created after NIP completes, typically ASID 1", "A utility that manages disk I/O", "The RACF security manager", "A monitor for batch job execution"], answer: 0, explanation: "The Master Scheduler (INIT/MASTER) is the initial operating system address space that manages subsystem startup and initialization." },
+      { question: "Which PARMLIB member defines keyboard and display console configuration?", options: ["COMMNDxx", "MCDxx", "KEYDFxx", "IEASYSxx"], answer: 2, explanation: "KEYDFxx specifies keyboard, display, and 3270 terminal configuration and attributes." },
+      { question: "What does SMFPRMxx control?", options: ["System message filtering", "System Management Facilities data collection and recording options", "Subsystem activation", "Storage management classes"], answer: 1, explanation: "SMFPRMxx configures SMF datasets, recording intervals, and which system events are logged for accounting and performance analysis." },
+      { question: "At what stage of IPL is RACF (security manager) typically started?", options: ["During NIP execution", "Before the Master Scheduler", "Early in the subsystem startup sequence, before JES", "After all other subsystems are initialized"], answer: 2, explanation: "RACF is started early so that access control and authentication can be enforced for subsequent subsystems and user logins." },
+      { question: "What does IEAPAKxx determine?", options: ["The job class assignments", "Which pageable nucleus modules are loaded at IPL", "The spool queue configuration", "The RACF profile naming convention"], answer: 1, explanation: "IEAPAKxx specifies which Portable Auxiliary Kernel (PAK) modules are resident vs. pageable, affecting memory usage and performance." },
+      { question: "Approximately how long does a typical z/OS IPL take from command issuance to ready state?", options: ["1–2 seconds", "5–10 seconds", "30 seconds to a few minutes (depending on hardware and configuration)", "10–20 minutes"], answer: 2, explanation: "IPL duration varies; simple systems may IPL in under a minute, while complex systems with many subsystems may take several minutes." },
+      { question: "What is BPXPRMxx used for?", options: ["Batch process exit configuration", "UNIX System Services (z/OS POSIX) configuration and filesystem setup", "Backup and recovery parameters", "Buffer pool management"], answer: 1, explanation: "BPXPRMxx controls UNIX System Services features, including filesystem mount points, security, and shell environment settings." }
     ],
     practical: [
-      { title: "Task 1  Browse IEASYSxx in SYS1.PARMLIB", description: "Use ISPF 3.4 to locate SYS1.PARMLIB, identify the active IEASYSxx member suffix, and review its contents.", hints: ["Hint 1: ask your instructor which suffix is in use, e.g. IEASYS00.", "Hint 2: use ISPF Browse (option 1) to read the member."], solution: "Expected findings. Replace with real content." },
-      { title: "Task 2  Identify System Initialization Messages in the Log", description: "Browse the operator log or SDSF LOG to find IPL-related messages (IEA, IOS prefixes) and trace the sequence of subsystem starts.", hints: ["Hint 1: in SDSF type LOG and filter for IEA*.", "Hint 2: note the timestamps and order of JES, RACF, TCPIP starts."], solution: "Expected observations. Replace with real content." }
+      { title: "Bonus Task – IPL Simulation with Hercules/Hyperion Emulator", description: "If you have access to Hercules (open-source mainframe emulator) or Hyperion (successor project), you can perform a hands-on IPL: (1) Download and configure Hercules with a z/OS image. (2) Create or modify a configuration file (.cnf) specifying your DASD volumes, channel device types, and IPL device address. (3) Issue the 'ipl [device address]' command within the Hercules console to initiate IPL. (4) Observe the console output as the system boots: you will see NIP initialization messages, PSA setup, PARMLIB member processing, and subsystem startup messages. (5) When prompted, log in with the master console credentials and issue commands like 'd a,l' (display active address spaces) to verify the running system.", hints: ["Hint 1: Hercules can be downloaded from http://www.hercules-390.org/ and Hyperion from https://github.com/Fish-Git/hyperion", "Hint 2: Pre-built z/OS or z/VM appliances like Marist College's zLinux or TK4 starter system can reduce setup complexity.", "Hint 3: Observe which messages have the 'IEA' prefix (z/OS system component messages related to IPL).", "Hint 4: After IPL, type 'help' at the console to explore available operator commands."], solution: "Upon successful IPL in Hercules, you will see: (a) NIP initialization (IEA010I messages indicating nucleus load, PSA creation). (b) Master Scheduler starting (ASID 1 messages). (c) RACF initialization (IEF089I, IEF090I messages). (d) JES2 startup (JES2 Version & HASP... messages). (e) VTAM/TCP start if configured. (f) Console ready prompt, waiting for operator input. A successful IPL demonstrates the complete sequence covered in this card." }
     ]
   },
 
