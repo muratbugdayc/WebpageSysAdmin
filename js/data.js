@@ -1116,35 +1116,244 @@ const topics = [
     level: 1,
     category: "Batch Processing & JCL",
     title: "JCL Procedures & Batch Utilities",
-    summary: "Catalogued and in-stream PROC definition, symbolic parameter override, and the key batch utilities: IEBGENER, IEBCOPY, IEFBR14, DFSORT, and IDCAMS.",
+    summary: "Catalogued and in-stream PROC definition, symbolic parameter override, and the key batch utilities: IEFBR14, IEBGENER, IEBCOPY, IDCAMS, DFSORT, ADRDSSU, ICKDSF, IKJEFT01, BPXBATCH, ISRSUPC and TRSMAIN.",
     content: `
       <h2>JCL Procedures (PROCs)</h2>
-      <p>Explain in-stream PROC / PEND vs catalogued PROC in a PROCLIB, and when to use each.</p>
-      <h2>Symbolic Parameters</h2>
+      <p>A <strong>JCL procedure</strong> (PROC) is a pre-written, parameterised template of EXEC and DD statements stored in a library and invoked by name from a job. Procs are the equivalent of a function or shell script for JCL: instead of pasting the same 30 lines into every job that does a daily SORT-then-COPY-then-FTP cycle, you write the cycle once as a PROC and then every consumer job invokes it with one EXEC line, optionally overriding parameters. Sites build large PROC libraries to standardise common workflows; modifying the PROC instantly affects every job that uses it.</p>
+      <p>There are two flavours of PROC: <strong>catalogued</strong> (stored as a member of a PROCLIB PDS, available system-wide) and <strong>in-stream</strong> (defined inside the job that uses it, scoped to that job only).</p>
       <ul>
-        <li><strong>Defining symbolics (&SYM=default)</strong>  placeholder.</li>
-        <li><strong>Overriding on the EXEC PROC= statement</strong>  placeholder.</li>
-        <li><strong>Nested PROC considerations</strong>  placeholder.</li>
+        <li><strong>Catalogued PROC</strong> — a member of a PDS in the JES2 PROCLIB concatenation (commonly SYS1.PROCLIB, SYS2.PROCLIB, or a user procedure library added at logon). Invocation from a job is just <code>//STEP1 EXEC MYPROC,SYM1=val1</code>. The system locates the member and substitutes parameters before executing.</li>
+        <li><strong>In-stream PROC</strong> — defined within the job using <code>//procname PROC ...</code> at the top and <code>// PEND</code> at the end, then invoked later in the same job with <code>//STEP1 EXEC procname</code>. Useful for one-off jobs that don't justify a permanent PROCLIB member, or for testing PROC changes before installing them.</li>
       </ul>
-      <h2>IEBGENER</h2>
-      <p>Copying sequential datasets; reformatting; selecting records with GENERATE/RECORD/FIELD.</p>
-      <h2>IEBCOPY</h2>
-      <p>Copying, merging, and compressing PDS/PDSE libraries.</p>
-      <h2>IEFBR14 & SORT</h2>
-      <p>IEFBR14 as a no-op for allocation/deletion via DD statements; DFSORT SORT/MERGE/INCLUDE/OMIT control statements.</p>
-      <h2>IDCAMS (AMS)</h2>
-      <p>DEFINE, LISTCAT, DELETE, REPRO, and ALTER for VSAM and catalog management.</p>
+      <p><strong>Skeleton — catalogued PROC member 'COPYDS' in SYS1.PROCLIB:</strong></p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//COPYDS   PROC INDSN=,OUTDSN=,RECFM=FB,LRECL=80
+//COPY     EXEC PGM=IEBGENER
+//SYSPRINT DD  SYSOUT=*
+//SYSUT1   DD  DSN=&amp;INDSN,DISP=SHR
+//SYSUT2   DD  DSN=&amp;OUTDSN,DISP=(NEW,CATLG,DELETE),
+//             SPACE=(TRK,(5,2)),DCB=(RECFM=&amp;RECFM,LRECL=&amp;LRECL,BLKSIZE=0)
+//SYSIN    DD  DUMMY</pre>
+      <p>Invocation:</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//RUNCOPY  JOB (ACCT),'COPY',CLASS=A,MSGCLASS=H,NOTIFY=&amp;SYSUID
+//STEP1    EXEC COPYDS,INDSN=Z12345.SOURCE,OUTDSN=Z12345.TARGET</pre>
+
+      <h2>Symbolic Parameters</h2>
+      <p>The <code>&amp;INDSN</code>, <code>&amp;OUTDSN</code>, <code>&amp;RECFM</code>, <code>&amp;LRECL</code> tokens above are <strong>symbolic parameters</strong>. They are declared on the PROC statement itself with optional defaults: <code>//COPYDS PROC INDSN=,OUTDSN=,RECFM=FB,LRECL=80</code>. The empty defaults for INDSN/OUTDSN force the caller to supply values; RECFM and LRECL have defaults so the caller can omit them.</p>
+      <ul>
+        <li><strong>Defining</strong> — comma-separated <code>name=default</code> pairs on the PROC header. Quote the default if it contains commas or special chars.</li>
+        <li><strong>Overriding</strong> — comma-separated <code>name=value</code> pairs on the EXEC PROC= invocation, in any order. Unsupplied symbolics keep their PROC default.</li>
+        <li><strong>Concatenation</strong> — symbolics can be embedded in larger strings: <code>DSN=&amp;HLQ..PAYROLL.DATA</code>. The double dot is required between a symbolic and a literal period (one dot ends the symbolic, second dot is the qualifier separator).</li>
+        <li><strong>System symbols</strong> — <code>&amp;SYSUID</code>, <code>&amp;SYSPLEX</code>, <code>&amp;SYSNAME</code>, etc., are also usable in PROCs.</li>
+      </ul>
+      <p><strong>Override DD statements</strong> — beyond simple symbolic substitution, the caller can override individual DD statements within a PROC by re-coding them in the EXEC step with a stepname-qualified DD name:</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC COPYDS,INDSN=Z12345.SOURCE
+//COPY.SYSUT2 DD DSN=Z12345.OVERRIDE,DISP=SHR
+//COPY.SYSPRINT DD DUMMY</pre>
+      <p>This overrides the SYSUT2 and SYSPRINT DDs of the COPY step inside the PROC, while leaving SYSUT1 (driven by the &amp;INDSN symbolic) intact.</p>
+      <p><strong>Nested PROCs</strong> — a PROC can EXEC another PROC. JES expands them recursively at job-conversion time. Up to 15 levels of nesting are allowed; deeper than 2 or 3 levels usually means it is time to redesign.</p>
+
+      <h2>Common Batch Utilities</h2>
+      <p>The following utilities are the toolbox every z/OS programmer becomes fluent in. Each is invoked as <code>EXEC PGM=name</code> with control statements on SYSIN.</p>
+
+      <h2>IEFBR14 — The No-Op</h2>
+      <p>The simplest IBM utility ever written. <strong>IEFBR14</strong> consists of two assembler instructions: <code>SR R15,R15</code> (set return code to 0) and <code>BR R14</code> (branch to caller). It does nothing, on purpose. Why is this useful? Because JES still processes the JCL DD statements before the program runs — so IEFBR14 is the standard way to <em>allocate</em> or <em>delete</em> datasets via JCL alone.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=IEFBR14
+//NEW      DD  DSN=&amp;SYSUID..NEW.DATASET,DISP=(NEW,CATLG,DELETE),
+//             SPACE=(TRK,(5,2)),DCB=(RECFM=FB,LRECL=80,BLKSIZE=0)
+//OLD      DD  DSN=&amp;SYSUID..OLD.DATASET,DISP=(OLD,DELETE,DELETE)</pre>
+      <p>One step creates a new dataset and deletes an old one. RC is always 0 if the JCL is valid.</p>
+
+      <h2>IEBGENER — Sequential Copy and Reformat</h2>
+      <p><strong>IEBGENER</strong> copies a sequential dataset (or PDS member) to another sequential dataset. With control statements it can reformat fields, select records, or insert headers. Required DDs: <code>SYSUT1</code> (input), <code>SYSUT2</code> (output), <code>SYSPRINT</code> (messages), <code>SYSIN</code> (control statements; DUMMY for straight copy).</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=IEBGENER
+//SYSPRINT DD  SYSOUT=*
+//SYSUT1   DD  DSN=Z12345.INPUT,DISP=SHR
+//SYSUT2   DD  DSN=Z12345.OUTPUT,DISP=(NEW,CATLG,DELETE),
+//             SPACE=(TRK,(5,2)),DCB=(RECFM=FB,LRECL=80,BLKSIZE=0)
+//SYSIN    DD  DUMMY</pre>
+      <p>For straight copies, modern shops increasingly prefer DFSORT's COPY function (faster on large data) or DFSMSdss (for non-sequential), but IEBGENER remains universal and reliable.</p>
+
+      <h2>IEBCOPY — PDS / PDSE Copy, Merge, Compress</h2>
+      <p><strong>IEBCOPY</strong> manipulates partitioned datasets (PDS and PDSE). It can copy entire libraries, merge two libraries into one, copy selected members with optional renaming, and (on classic PDS only) <strong>compress</strong> a library to reclaim "gas" left by member deletions. PDSE reclaims space automatically and never needs compress.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//* Compress a PDS in place
+//STEP1    EXEC PGM=IEBCOPY
+//SYSPRINT DD  SYSOUT=*
+//SYSUT1   DD  DSN=Z12345.MY.PDS,DISP=OLD
+//SYSUT2   DD  DSN=Z12345.MY.PDS,DISP=OLD
+//SYSIN    DD  *
+  COPY OUTDD=SYSUT2,INDD=SYSUT1
+/*
+//* Selective copy with rename
+//STEP2    EXEC PGM=IEBCOPY
+//SYSPRINT DD  SYSOUT=*
+//IN       DD  DSN=Z12345.SOURCE.PDS,DISP=SHR
+//OUT      DD  DSN=Z12345.TARGET.PDS,DISP=OLD
+//SYSIN    DD  *
+  COPY OUTDD=OUT,INDD=IN
+  SELECT MEMBER=((MEMBER1,NEWNAME1,R),MEMBER2)
+/*</pre>
+      <p>The <code>R</code> in the SELECT list means "replace if target already exists." Without R, IEBCOPY skips members that already exist on the target.</p>
+
+      <h2>IDCAMS — Access Method Services</h2>
+      <p><strong>IDCAMS</strong> handles VSAM and ICF catalog operations: DEFINE CLUSTER / GDG / ALIAS, LISTCAT, DELETE, ALTER, REPRO (copy records VSAM↔VSAM or VSAM↔sequential), PRINT (dump dataset content), VERIFY (fix a VSAM cluster's high-used RBA after an abnormal close). Covered in detail in the L1 VSAM card; the JCL pattern is always:</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=IDCAMS
+//SYSPRINT DD  SYSOUT=*
+//SYSIN    DD  *
+  LISTCAT LEVEL(Z12345)
+/*</pre>
+
+      <h2>DFSORT — Sort, Merge, Copy, Filter</h2>
+      <p><strong>DFSORT</strong> (program name <code>SORT</code> or alias <code>ICEMAN</code>) is IBM's high-performance sort utility. It does much more than its name suggests: SORT (order records), MERGE (combine pre-sorted inputs), COPY (just copy without sorting — surprisingly common because DFSORT is faster than IEBGENER), INCLUDE/OMIT (filter records), OUTREC/INREC (reformat fields), OUTFIL (multiple output files with different filters), summarisation (SUM, GROUP), date arithmetic. Required DDs: <code>SORTIN</code>, <code>SORTOUT</code> (or <code>OUTFIL</code> for multiple), <code>SORTWK01</code> series (work files), <code>SYSOUT</code>, <code>SYSIN</code>.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=SORT
+//SYSOUT   DD  SYSOUT=*
+//SORTIN   DD  DSN=Z12345.INPUT,DISP=SHR
+//SORTOUT  DD  DSN=Z12345.SORTED,DISP=(NEW,CATLG,DELETE),
+//             SPACE=(CYL,(5,2)),DCB=(*.SORTIN)
+//SYSIN    DD  *
+  SORT FIELDS=(1,6,CH,A)            /* sort by chars 1-6, ascending */
+  INCLUDE COND=(20,1,CH,EQ,C'A')    /* keep only records with 'A' at pos 20 */
+/*</pre>
+
+      <h2>ADRDSSU — DFSMSdss</h2>
+      <p><strong>ADRDSSU</strong> is the program name for <strong>DFSMSdss</strong> — IBM's general-purpose data-movement utility. It DUMPs (creates a portable backup image of) datasets or whole volumes, RESTOREs them, COPYs datasets between volumes, RELEASEs unused space, and COMPRESSes PDSs. Used by HSM internally for migrations and backups, and by storage admins for one-off operations. Powerful filter syntax (INCLUDE/EXCLUDE/BY) selects datasets by name pattern, organisation, creation date, RACF owner, etc.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=ADRDSSU,REGION=0M
+//SYSPRINT DD  SYSOUT=*
+//OUT      DD  DSN=Z12345.BACKUP.IMAGE,DISP=(NEW,CATLG,DELETE),
+//             SPACE=(CYL,(10,5))
+//SYSIN    DD  *
+  DUMP DATASET( INCLUDE(Z12345.**) -
+                EXCLUDE(Z12345.TEMP.**) ) -
+       OUTDDNAME(OUT) COMPRESS
+/*</pre>
+      <p>Covered in depth in the L2 DFSMShsm &amp; DFSMSdss card.</p>
+
+      <h2>ICKDSF — Device Support Facilities</h2>
+      <p><strong>ICKDSF</strong> ("Ick-disk-eff") is the low-level DASD volume utility. It is the program that initialises new DASD volumes (writes the VOL1 label, creates the VTOC, and lays down the IPL boot record on volumes that need to be IPLable), refreshes a damaged VTOC, builds an indexed VTOC (BUILDIX), reformats tracks, and runs surface analysis (ANALYZE) to find media defects. ICKDSF is the only way to bring a never-used DASD volume online for the first time.</p>
+      <p>This is firmly storage-administrator territory — running ICKDSF against the wrong volume number can wipe a production disk in seconds. Learners will never run ICKDSF themselves, but it's important to recognise it in JCL because it appears in every site's IPL recovery procedures.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=ICKDSF,REGION=0M
+//SYSPRINT DD  SYSOUT=*
+//SYSIN    DD  *
+  INIT UNIT(0A80) NOVERIFY VOLID(WORK01) VTOC(0,0,150) -
+       INDEX(0,150,21)
+/*</pre>
+
+      <h2>IKJEFT01 — TSO Terminal Monitor in Batch</h2>
+      <p><strong>IKJEFT01</strong> is the TSO Terminal Monitor Program — but invoked in batch instead of interactively. It lets a JCL job run TSO commands, REXX execs, or CLISTs as if a user had typed them at READY. The required DDs are <code>SYSTSPRT</code> (output, equivalent to the TSO terminal display) and <code>SYSTSIN</code> (input, the commands). Two close siblings: <strong>IKJEFT1A</strong> (returns the maximum RC of all commands) and <strong>IKJEFT1B</strong> (returns the RC of the last command). Use IKJEFT1A when you want failures to surface as nonzero RCs.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=IKJEFT01,DYNAMNBR=20
+//SYSTSPRT DD  SYSOUT=*
+//SYSTSIN  DD  *
+  LISTC LEVEL(Z12345)
+  HRECALL 'Z12345.OLD.DATA'
+  EXEC 'Z12345.REXX.EXEC(MYREXX)' 'parm1 parm2'
+/*</pre>
+      <p>Invaluable for executing REXX automation in batch, running TSO commands you can't run any other way (LISTUSER, LISTGRP, RACF commands), and bridging interactive-style logic into the unattended batch world.</p>
+
+      <h2>SDSF in Batch</h2>
+      <p>SDSF is normally interactive (the ISPF panel-based job/output viewer), but it can also be driven programmatically from a batch job through its <strong>REXX interface</strong>, which means via IKJEFT01. This is how automation scripts capture spool output, purge held jobs, change job classes, or scrape SYSLOG data without any human in the loop. The pattern: run a REXX exec that issues <code>ADDRESS SDSF</code> commands and writes results to a dataset.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=IKJEFT01,DYNAMNBR=20
+//ISFOUT   DD  DSN=Z12345.SPOOL.CAPTURE,DISP=(NEW,CATLG,DELETE),
+//             SPACE=(TRK,(5,2)),DCB=(RECFM=VB,LRECL=255)
+//SYSTSPRT DD  SYSOUT=*
+//SYSTSIN  DD  *
+  %ISFEXEC ST OWNER(Z12345)         /* run SDSF ST query */
+/*</pre>
+      <p>The richer pattern uses ISFAFD or ISFEXEC inside a custom REXX exec — covered in the L2 Advanced REXX card. For straightforward needs, the <strong>SDSF batch interface</strong> documented in the SDSF User's Guide gives a clean way to extract job output to a sequential dataset for downstream processing.</p>
+
+      <h2>BPXBATCH — Run USS Shell Commands from JCL</h2>
+      <p><strong>BPXBATCH</strong> is the bridge from JCL into UNIX System Services. PARM='SH /path/to/script.sh' runs the named shell script; PARM='PGM /path/to/binary args' runs an executable directly. Required (or implicit) DDs: <code>STDOUT</code>, <code>STDERR</code>, <code>STDIN</code>. A faster sibling, <strong>BPXBATSL</strong>, runs the program in the same address space (no fork/exec overhead, but the program shares the JCL step's resources).</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=BPXBATCH,PARM='SH /u/Z12345/daily-cleanup.sh'
+//STDOUT   DD  SYSOUT=*
+//STDERR   DD  SYSOUT=*</pre>
+      <p>Covered in depth in the L2 USS card; mentioned here because BPXBATCH is the standard way to invoke USS workloads from a batch scheduler.</p>
+
+      <h2>ISRSUPC — ISPF SuperC Compare</h2>
+      <p><strong>ISRSUPC</strong> is the batch interface to ISPF's <strong>SuperC</strong> compare utility (the same one that runs interactively from ISPF 3.13). It compares two datasets (or two PDS members, or two USS files) at a chosen granularity — line, word, or byte — and writes a difference report. Required DDs: <code>NEWDD</code> and <code>OLDDD</code> (the two inputs), <code>OUTDD</code> (the report), <code>SYSIN</code> (control statements), <code>SYSPRINT</code>. The PARM controls comparison level: <code>LINECMP</code> (line-by-line), <code>WORDCMP</code> (word-by-word), <code>BYTECMP</code> (byte-by-byte), <code>FILECMP</code> (just same/different verdict).</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//STEP1    EXEC PGM=ISRSUPC,PARM='LINECMP,ANYC'
+//NEWDD    DD  DSN=Z12345.VERSION.NEW,DISP=SHR
+//OLDDD    DD  DSN=Z12345.VERSION.OLD,DISP=SHR
+//OUTDD    DD  SYSOUT=*
+//SYSPRINT DD  SYSOUT=*
+//SYSIN    DD  DUMMY</pre>
+      <p>Returns RC=0 (identical), RC=1 (different), RC&gt;1 (error). Indispensable for change-control jobs that need to detect modifications between baseline and current versions of source code, parmlib members, or configuration files.</p>
+
+      <h2>TRSMAIN — Terse / Untersify</h2>
+      <p><strong>TRSMAIN</strong> (sometimes shipped as <strong>AMATERSE</strong>, the modern name) is IBM's single-file packing/compression utility. It compresses a sequential dataset or PDS into a smaller "tersed" file (familiar extension <code>.trs</code> or <code>.tersed</code>), and decompresses it back. The format is what IBM uses to distribute SMP/E PTFs, samples, and packaged datasets — when you download a Shopz package or a Redbook sample, it usually arrives as a tersed file that you transfer in BINARY mode and then untersify on the mainframe. PARM controls direction: <code>PACK</code> (compress) or <code>UNPACK</code> (decompress). The "SPACK" (super-pack) variant gives better compression at higher CPU cost.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//* Untersify (decompress) a downloaded .trs file
+//STEP1    EXEC PGM=AMATERSE,PARM='UNPACK'
+//SYSUT1   DD  DSN=Z12345.DOWNLOAD.TERSED,DISP=SHR
+//SYSUT2   DD  DSN=Z12345.UNPACKED,DISP=(NEW,CATLG,DELETE),
+//             SPACE=(CYL,(50,20)),DCB=(RECFM=FB,LRECL=80,BLKSIZE=0)
+//SYSPRINT DD  SYSOUT=*</pre>
+      <p>Knowing TRSMAIN/AMATERSE is essential the first time you receive a tersed file from IBM Support, an APAR fix, or a Redbook companion — without it the file is just an opaque blob.</p>
+
+      <h2>Sources &amp; References</h2>
+      <div style="margin-top:20px; padding:20px; background-color:#e8f4f8; border-left:5px solid #0066cc; border-radius:4px; font-size:0.9em; line-height:1.8;">
+        <ul style="margin: 0; padding-left: 20px; list-style-type:none;">
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-mvs-jcl-reference" target="_blank" style="color:#0066cc; text-decoration:none;">MVS JCL Reference</a> (Publication SA23-1385) — PROC, EXEC, symbolic parameters, DD overrides</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-dfsmsdfp-utilities" target="_blank" style="color:#0066cc; text-decoration:none;">DFSMSdfp Utilities</a> (Publication SC23-6864) — IEBGENER, IEBCOPY, IEFBR14, IEHLIST</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=commands-idcams" target="_blank" style="color:#0066cc; text-decoration:none;">Access Method Services for Catalogs</a> (IDCAMS reference)</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-dfsort-application-programming-guide" target="_blank" style="color:#0066cc; text-decoration:none;">DFSORT Application Programming Guide</a> (Publication SC23-6878)</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-dfsmsdss-storage-administration" target="_blank" style="color:#0066cc; text-decoration:none;">DFSMSdss Storage Administration</a> (Publication SC23-6868) — ADRDSSU</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-device-support-facilities-ickdsf-users-guide" target="_blank" style="color:#0066cc; text-decoration:none;">Device Support Facilities (ICKDSF) User's Guide</a> (Publication GC35-0033)</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-tso-e-customization" target="_blank" style="color:#0066cc; text-decoration:none;">TSO/E Customization &amp; Programming</a> — IKJEFT01 / IKJEFT1A / IKJEFT1B</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-sdsf-users-guide" target="_blank" style="color:#0066cc; text-decoration:none;">SDSF User's Guide</a> — REXX/batch programmatic interface</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-unix-system-services-command-reference" target="_blank" style="color:#0066cc; text-decoration:none;">UNIX System Services Command Reference</a> — BPXBATCH, BPXBATSL</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-ispf-services-guide" target="_blank" style="color:#0066cc; text-decoration:none;">ISPF Services Guide</a> — ISRSUPC SuperC compare</li>
+          <li>• <a href="https://www.ibm.com/support/pages/amaterse-program" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Support — AMATERSE / TRSMAIN</a></li>
+        </ul>
+      </div>
     `,
     mcq: [
-      { question: "What is the purpose of IEFBR14?", options: ["Copy datasets", "A no-op program used to execute DD statements for allocation/deletion", "Sort records", "Merge PDS members"], answer: 1, explanation: "IEFBR14 performs no processing  it is invoked purely to trigger JCL DD allocation or deletion." },
-      { question: "Which utility merges two PDS libraries into one?", options: ["IEBGENER", "IDCAMS REPRO", "IEBCOPY", "SORT"], answer: 2, explanation: "IEBCOPY copies, merges, and compresses PDS/PDSE libraries, selecting or excluding individual members." },
-      { question: "In DFSORT, what does the INCLUDE statement do?", options: ["Adds new records to the output", "Selects only records matching a condition for inclusion in output", "Inserts header records", "Defines the sort key"], answer: 1, explanation: "INCLUDE COND=(...) causes SORT to pass only records satisfying the condition to the output." },
-      { question: "How are symbolic parameters defined in a catalogued PROC?", options: ["//SYM DD parameter", "In the PROC header statement as &name=default", "In a separate SYMLIST member", "Via RACF variables"], answer: 1, explanation: "Symbolics are declared on the PROC statement itself: //MYJOB PROC HLQUAL=SYS1,RECFM=FB" },
-      { question: "What IDCAMS command copies a VSAM dataset to another VSAM or sequential dataset?", options: ["DEFINE CLUSTER", "LISTCAT", "REPRO", "ALTER"], answer: 2, explanation: "REPRO copies records from one dataset (VSAM or sequential) to another, making it useful for VSAM backup and migration." }
+      { question: "What is the purpose of IEFBR14?", options: ["Copy datasets", "A no-op program used to execute DD statements for allocation/deletion", "Sort records", "Merge PDS members"], answer: 1, explanation: "IEFBR14 is two assembler instructions (set RC=0, branch to caller). It does no work; JES still processes the JCL DD statements, which is what allocates or deletes datasets." },
+      { question: "Which utility merges two PDS libraries into one and can compress a classic PDS in place?", options: ["IEBGENER", "IDCAMS REPRO", "IEBCOPY", "SORT"], answer: 2, explanation: "IEBCOPY copies, merges, and compresses PDS/PDSE libraries. PDSE doesn't need compress; PDS does to reclaim 'gas' from deleted members." },
+      { question: "In DFSORT, what does the INCLUDE statement do?", options: ["Adds new records to the output", "Selects only records matching a condition for inclusion in output", "Inserts header records", "Defines the sort key"], answer: 1, explanation: "INCLUDE COND=(...) filters records — only those satisfying the condition pass to SORTOUT. OMIT is the opposite (drop matching records)." },
+      { question: "How are symbolic parameters defined in a catalogued PROC?", options: ["//SYM DD parameter", "Comma-separated name=default pairs on the PROC header statement", "In a separate SYMLIST member", "Via RACF variables"], answer: 1, explanation: "Symbolics are declared on the PROC statement: //COPYDS PROC INDSN=,OUTDSN=,RECFM=FB,LRECL=80. Empty defaults force the caller to supply a value." },
+      { question: "What IDCAMS command copies records from one dataset to another (VSAM↔VSAM, VSAM↔sequential)?", options: ["DEFINE CLUSTER", "LISTCAT", "REPRO", "ALTER"], answer: 2, explanation: "REPRO is the universal copy verb in IDCAMS — used for VSAM backup, restore after REORG, and VSAM-to-sequential extracts." },
+      { question: "What does the program ADRDSSU do?", options: ["VSAM cluster definition", "It is the DFSMSdss program — DUMP / RESTORE / COPY / RELEASE / COMPRESS for datasets and volumes", "TCP/IP routing", "Db2 utilities"], answer: 1, explanation: "ADRDSSU is the program name for DFSMSdss. HSM calls it internally for migrations and backups; storage admins call it directly for ad-hoc dumps and restores." },
+      { question: "What does ICKDSF primarily do?", options: ["Initialise and maintain DASD volumes (write VOL1 label, build VTOC, surface analysis)", "Edit ISPF panels", "Manage RACF profiles", "Compile assembler programs"], answer: 0, explanation: "ICKDSF (Device Support Facilities) is the low-level DASD volume utility. INIT formats a volume; BUILDIX creates indexed VTOCs; ANALYZE checks for media defects. Strictly storage-admin territory." },
+      { question: "What is IKJEFT01?", options: ["A network monitor", "The TSO Terminal Monitor invoked in batch — runs TSO commands, REXX execs, and CLISTs as if a user typed them at READY", "An IDCAMS alias", "A DFSORT module"], answer: 1, explanation: "IKJEFT01 (and siblings IKJEFT1A / IKJEFT1B) lets JCL run TSO/E commands non-interactively. Required DDs: SYSTSPRT (terminal-equivalent output) and SYSTSIN (command input)." },
+      { question: "What does the BPXBATCH utility do in a JCL job?", options: ["Batch up SDSF queries", "Run a USS shell command or script from a batch job, with stdout/stderr captured to JCL DDs", "Compress PDSEs", "Define VSAM aggregates"], answer: 1, explanation: "BPXBATCH is the JCL→USS bridge. PARM='SH /path/to/script' runs the script; STDOUT/STDERR DDs capture its output streams. BPXBATSL is a faster same-address-space variant." },
+      { question: "What is the ISRSUPC utility used for?", options: ["Suppressing JCL errors", "The batch interface to ISPF SuperC — compares two datasets or members at line / word / byte granularity and produces a difference report", "Submitting jobs from REXX", "Encrypting datasets"], answer: 1, explanation: "ISRSUPC is the batch SuperC compare. PARM controls granularity (LINECMP / WORDCMP / BYTECMP / FILECMP). Returns RC=0 identical, RC=1 differences found, RC>1 error." },
+      { question: "What is TRSMAIN (also called AMATERSE) used for?", options: ["TCP/IP routing", "Packing/unpacking datasets in IBM's portable 'tersed' format — used to distribute SMP/E PTFs, Redbook samples, and APAR fixes", "Loading load modules", "Managing tape volumes"], answer: 1, explanation: "TRSMAIN/AMATERSE compresses a dataset for transfer (PARM='PACK') and decompresses it on the receiving system (PARM='UNPACK'). Standard format for IBM-shipped packaged datasets." },
+      { question: "What is the difference between an in-stream PROC and a catalogued PROC?", options: ["In-stream PROCs run faster", "An in-stream PROC is defined inside the calling job (between // procname PROC and // PEND) and is scoped to that job; a catalogued PROC lives as a member of a PROCLIB PDS and is shared system-wide", "Catalogued PROCs cannot have symbolics", "There is no difference"], answer: 1, explanation: "In-stream PROCs are useful for one-off jobs and for testing changes before installing into PROCLIB. Catalogued PROCs are the production pattern — modify the member, every consumer job picks up the new version on next submission." }
     ],
     practical: [
-      { title: "Task 1  Write a Catalogued PROC with Symbolic Parameters", description: "Create a PROC that copies a dataset using IEBGENER, with the input and output DSNs as symbolic parameters. Call it from a job overriding both symbols.", hints: ["Hint 1: define symbolics as &INDSN= and &OUTDSN= on the PROC statement.", "Hint 2: invoke with EXEC MYPROC,INDSN=your.input,OUTDSN=your.output"], solution: "Expected PROC and JCL. Replace with real content." },
-      { title: "Task 2  Sort a Dataset and Select Records with DFSORT", description: "Use DFSORT to sort a sequential dataset by a key field, include only records where a flag field equals '1', and write to a new output dataset.", hints: ["Hint 1: SORT FIELDS=(start,len,CH,A) defines the sort key.", "Hint 2: INCLUDE COND=(flag_pos,1,CH,EQ,C'1') filters records."], solution: "Expected JCL and SORT control statements. Replace with real content." }
+      {
+        title: "Task 1 — Write an In-Stream PROC with Symbolic Parameters",
+        description: "Build an in-stream PROC inside one job that copies a sequential dataset using IEBGENER, with two symbolic parameters (input DSN and output DSN). Invoke it twice in the same job with different parameter values to copy two different datasets in one submission. In-stream PROCs are the easiest way to learn the PROC mechanism without needing PROCLIB write access.",
+        hints: [
+          "Hint 1: An in-stream PROC starts with //procname PROC sym1=,sym2=,... and ends with // PEND. Place the PROC definition near the top of the job, after the JOB statement and before any EXECs that will use it.",
+          "Hint 2: After the PEND, you EXEC the PROC just like a catalogued one: //STEP1 EXEC procname,sym1=value1,sym2=value2.",
+          "Hint 3: For test data, allocate a couple of small sequential datasets first (e.g., yourID.PROC.IN1, yourID.PROC.IN2) with a few lines of text via ISPF Edit. Then your job's IEBGENER will copy them to yourID.PROC.OUT1 and yourID.PROC.OUT2.",
+          "Hint 4: After submission, in SDSF JESJCL you'll see the PROC expanded once per invocation, with symbolic substitutions visible (the //+ prefix indicates lines from the PROC, the //* prefix indicates symbolic-substituted lines).",
+          "Hint 5: To convert this in-stream PROC to a catalogued one, save the PROC body (without the // PEND line) as a member of a PROCLIB you have access to, and remove the in-stream definition from the job."
+        ],
+        solution: "<strong>JCL:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">//PROCDEMO JOB (ACCT),'PROC TEST',CLASS=A,MSGCLASS=H,\n//             NOTIFY=&amp;SYSUID,REGION=0M\n//*\n//* In-stream PROC definition\n//*\n//COPYIT   PROC INDSN=,OUTDSN=\n//COPY     EXEC PGM=IEBGENER\n//SYSPRINT DD  SYSOUT=*\n//SYSUT1   DD  DSN=&amp;INDSN,DISP=SHR\n//SYSUT2   DD  DSN=&amp;OUTDSN,DISP=(NEW,CATLG,DELETE),\n//             SPACE=(TRK,(2,1)),\n//             DCB=(RECFM=FB,LRECL=80,BLKSIZE=0)\n//SYSIN    DD  DUMMY\n//         PEND\n//*\n//* Two invocations with different parameters\n//*\n//STEP1    EXEC COPYIT,INDSN=Z12345.PROC.IN1,OUTDSN=Z12345.PROC.OUT1\n//STEP2    EXEC COPYIT,INDSN=Z12345.PROC.IN2,OUTDSN=Z12345.PROC.OUT2</pre><strong>Expected SDSF output:</strong> MAX-RC=0, two new datasets created. Drilling into JESJCL shows the PROC expanded once per invocation, with the symbolic substitutions visible. Look for these characters at the start of each line:<br>- <code>//</code> — original JCL from the job<br>- <code>//+</code> — JCL inserted from the PROC definition<br>- <code>//*</code> at column 1 — comment lines (or substituted symbolic values when JES echoes them in JESJCL)<br><br>Sample JESJCL excerpt:<pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">  19 //STEP1    EXEC COPYIT,INDSN=Z12345.PROC.IN1,OUTDSN=Z12345.PROC.OUT1\n  20 //COPY     EXEC PGM=IEBGENER\n  21 //SYSPRINT DD  SYSOUT=*\n  22 //SYSUT1   DD  DSN=Z12345.PROC.IN1,DISP=SHR\n     XXSYSUT1   DD  DSN=&amp;INDSN,DISP=SHR\n  23 //SYSUT2   DD  DSN=Z12345.PROC.OUT1,DISP=(NEW,CATLG,DELETE),...</pre>The XX-prefixed line shows the original PROC line; the line above shows the substituted version JES actually used. This dual display is invaluable when debugging unexpected substitutions.<br><br><strong>Common pitfalls:</strong> (a) forgetting the //         PEND line means everything after the PROC is treated as part of the PROC, and the actual EXECs never run; (b) putting an EXEC before the PROC definition causes JCL errors — the PROC must be defined before it's referenced; (c) symbolic names are case-sensitive and limited to 7 characters; (d) trying to override a DD that doesn't exist in the PROC is fine (it's just added), but referencing &amp;sym before defining it on the PROC header gives an IEFC658I 'symbol not defined' error."
+      },
+      {
+        title: "Task 2 — IEBCOPY: Selectively Copy Members and Compress a PDS",
+        description: "Run IEBCOPY to copy two specific members from one PDS to another (with one of them being renamed during the copy), then compress the source PDS to reclaim space from previously deleted members. This walks through the two most common IEBCOPY use cases.",
+        hints: [
+          "Hint 1: You'll need two PDSs to play with. Use Z12345.TEST.CNTL from earlier exercises as the source; allocate Z12345.TEST.CNTL2 via ISPF 3.2 (PDS, DIR=10) as the target.",
+          "Hint 2: Add a couple of members to Z12345.TEST.CNTL via ISPF 2 (e.g., MEMBER1, MEMBER2) so you have something to copy. To create dead space for the compress demo, add a few members and then delete them.",
+          "Hint 3: For the selective copy, the IEBCOPY SELECT statement names the members to copy: SELECT MEMBER=((MEMBER1,NEWNAME,R),MEMBER2). The (oldname,newname,R) form renames during copy and replaces if the target exists; a bare member name copies under the same name.",
+          "Hint 4: For the compress, both SYSUT1 and SYSUT2 point to the same dataset with DISP=OLD. The COPY OUTDD=SYSUT2,INDD=SYSUT1 control statement (no SELECT) copies all members and reclaims gas in the process.",
+          "Hint 5: To see the effect of compress, check the dataset's information panel (ISPF 3.4 → I) before and after. The 'Used tracks' should drop after compress if there were deletions."
+        ],
+        solution: "<strong>Two-step JCL — selective copy + compress:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">//IEBCJOB  JOB (ACCT),'IEBCOPY DEMO',CLASS=A,MSGCLASS=H,\n//             NOTIFY=&amp;SYSUID,REGION=0M\n//*\n//* STEP1: selective copy with rename\n//*\n//STEP1    EXEC PGM=IEBCOPY\n//SYSPRINT DD  SYSOUT=*\n//SYSUT3   DD  UNIT=SYSDA,SPACE=(TRK,(5,5))\n//SYSUT4   DD  UNIT=SYSDA,SPACE=(TRK,(5,5))\n//IN       DD  DSN=Z12345.TEST.CNTL,DISP=SHR\n//OUT      DD  DSN=Z12345.TEST.CNTL2,DISP=OLD\n//SYSIN    DD  *\n  COPY OUTDD=OUT,INDD=IN\n  SELECT MEMBER=((MEMBER1,RENAMED,R),MEMBER2)\n/*\n//*\n//* STEP2: in-place compress of the source PDS\n//*\n//STEP2    EXEC PGM=IEBCOPY\n//SYSPRINT DD  SYSOUT=*\n//SYSUT3   DD  UNIT=SYSDA,SPACE=(TRK,(5,5))\n//SYSUT4   DD  UNIT=SYSDA,SPACE=(TRK,(5,5))\n//SYSUT1   DD  DSN=Z12345.TEST.CNTL,DISP=OLD\n//SYSUT2   DD  DSN=Z12345.TEST.CNTL,DISP=OLD\n//SYSIN    DD  *\n  COPY OUTDD=SYSUT2,INDD=SYSUT1\n/*</pre><strong>Expected SDSF output:</strong> MAX-RC=0. STEP1 SYSPRINT shows messages like:<pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">IEB1135I IEBCOPY  FMID HDZ2240  ...\nIEB1014I CONCATENATION # 01 OF INPUT DATA SET REFERENCED BY DDNAME = IN\nIEB1013I COPYING FROM  PDS    INDD=IN     VOL=...    DSN=Z12345.TEST.CNTL\nIEB1014I CONCATENATION # 01 OF OUTPUT DATA SET REFERENCED BY DDNAME = OUT\nIEB1018I    TO          PDS    OUTDD=OUT   VOL=...    DSN=Z12345.TEST.CNTL2\nIEB167I FOLLOWING MEMBER(S) LOADED FROM INPUT DATA SET REFERENCED BY  IN\nIEB154I MEMBER1     HAS BEEN SUCCESSFULLY LOADED      RENAMED  RENAMED\nIEB154I MEMBER2     HAS BEEN SUCCESSFULLY LOADED\nIEB144I THERE ARE 2 UNUSED TRACKS IN OUTPUT DATA SET REFERENCED BY  OUT\nIEB149I THERE ARE 8 UNUSED DIRECTORY BLOCKS IN OUTPUT DIRECTORY\nIEB147I END OF JOB - 0 WAS HIGHEST SEVERITY CODE</pre>STEP2 (compress) SYSPRINT looks similar but reports unused-track recovery if there was prior deletion gas to reclaim.<br><br><strong>Verification:</strong> ISPF 3.4 → mask Z12345.TEST.* → M next to CNTL2 shows two members: MEMBER2 (original name) and RENAMED (the renamed copy of MEMBER1). For the compress effect, the I (Information) line command on Z12345.TEST.CNTL shows the 'Used' tracks count — after compress, this is the actual data footprint with no gas.<br><br><strong>Notes:</strong> (a) the SYSUT3 and SYSUT4 work DDs are required by IEBCOPY for spilling temporary data; allocate them with UNIT=SYSDA and modest space; (b) DISP=OLD on both SYSUT1 and SYSUT2 for the in-place compress is the standard pattern — IEBCOPY recognises the same-DSN-on-both-DDs case and does an in-place rebuild; (c) PDSE doesn't need this — try the same compress against a PDSE and IEBCOPY simply reports 'compress not required' and exits with RC=0."
+      },
+      {
+        title: "Task 3 — DFSORT: Sort, Filter, and Reformat in One Job",
+        description: "Use DFSORT to take a small input dataset, sort it by a key field, filter to only certain records with INCLUDE, and reformat the output with OUTREC. This walks through the three primary DFSORT operations in a single control-statement deck — the typical batch-reporting pattern used countless times every day in production shops.",
+        hints: [
+          "Hint 1: Allocate Z12345.SORT.IN as FB,80 via ISPF 3.2 and use ISPF Edit to add about 8-10 lines, each formatted like 'NAME    DEPT  SALARY' in fixed columns. For example positions 1-10 = name, 12-15 = dept code, 17-22 = salary, with one record per line.",
+          "Hint 2: For SORT control statements: SORT FIELDS=(start,length,format,sequence). Format CH = character (alphabetical), ZD = zoned decimal (numeric), PD = packed decimal. Sequence A = ascending, D = descending.",
+          "Hint 3: INCLUDE COND=(start,length,format,operator,value) filters records — only matching records pass to SORTOUT. Common operators: EQ, NE, LT, LE, GT, GE.",
+          "Hint 4: OUTREC FIELDS=(...) reformats each output record. You can rearrange fields, insert constants, change column positions. e.g., OUTREC FIELDS=(17,6,X,1,10) outputs the salary first, a space, then the name.",
+          "Hint 5: SORTWK01 / SORTWK02 / SORTWK03 are work files DFSORT uses for sorting. Allocate them with UNIT=SYSDA and a few cylinders each. For very small inputs DFSORT may skip them entirely."
+        ],
+        solution: "<strong>Sample input (Z12345.SORT.IN, FB,80):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">SMITH      D100  050000\nJONES      D200  045000\nWHITE      D100  062000\nBROWN      D300  038000\nDAVIS      D200  051000\nWILSON     D100  058000\nTAYLOR     D300  042000\nANDERSON   D200  049000</pre><strong>JCL:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">//SORTJOB  JOB (ACCT),'DFSORT DEMO',CLASS=A,MSGCLASS=H,\n//             NOTIFY=&amp;SYSUID,REGION=0M\n//STEP1    EXEC PGM=SORT\n//SYSOUT   DD  SYSOUT=*\n//SORTIN   DD  DSN=Z12345.SORT.IN,DISP=SHR\n//SORTOUT  DD  DSN=Z12345.SORT.OUT,DISP=(NEW,CATLG,DELETE),\n//             SPACE=(TRK,(2,1)),\n//             DCB=(RECFM=FB,LRECL=80,BLKSIZE=0)\n//SORTWK01 DD  UNIT=SYSDA,SPACE=(CYL,(5,5))\n//SORTWK02 DD  UNIT=SYSDA,SPACE=(CYL,(5,5))\n//SORTWK03 DD  UNIT=SYSDA,SPACE=(CYL,(5,5))\n//SYSIN    DD  *\n  INCLUDE COND=(12,4,CH,EQ,C'D100')        /* keep only D100 dept */\n  SORT    FIELDS=(17,6,ZD,D)               /* sort salary descending */\n  OUTREC  FIELDS=(17,6,X,1,10,X,12,4)      /* salary | name | dept */\n/*</pre><strong>Expected output (Z12345.SORT.OUT after the job):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">062000 WHITE      D100\n058000 WILSON     D100\n050000 SMITH      D100</pre>Three records came through — only the D100 department survived INCLUDE. They're sorted by salary descending. Each line is reformatted: salary first, name second, department third.<br><br><strong>Reading the SYSOUT report</strong> — DFSORT writes a detailed summary:<pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">ICE000I 1 - CONTROL STATEMENTS FOR 5650-ZOS, Z/OS DFSORT V2R5\n  INCLUDE COND=(12,4,CH,EQ,C'D100')\n  SORT    FIELDS=(17,6,ZD,D)\n  OUTREC  FIELDS=(17,6,X,1,10,X,12,4)\nICE201I H RECORD TYPE IS F - DATA STARTS IN POSITION 1\nICE751I 1 - INPUT LRECL = 80, BLKSIZE = 27920, TYPE = FB\nICE751I 0 - OUTPUT LRECL = 80, BLKSIZE = 27920, TYPE = FB\nICE090I 0 - VIO ACCESSED FOR SORTWK01\nICE055I 0 - INSERT 0, DELETE 0\nICE054I 0 - RECORDS - IN: 8, OUT: 3\nICE052I 0 - END OF DFSORT</pre>The ICE054I line gives the headline metric: 8 records in, 3 out (5 dropped by INCLUDE).<br><br><strong>Variations</strong>: (a) replace INCLUDE with OMIT to invert the filter (drop matching records, keep the rest); (b) add SUM FIELDS=(17,6,ZD) to sum the salary column across kept records — DFSORT will collapse duplicates by sort key; (c) use OUTFIL to write multiple output files in one pass with different filters — e.g., one file for each department; (d) for a copy without sorting, replace SORT FIELDS with OPTION COPY — surprisingly common because DFSORT is faster than IEBGENER on large data."
+      }
     ]
   },
 
@@ -1158,28 +1367,293 @@ const topics = [
     summary: "REXX language fundamentals, built-in functions, ISPF service calls, basic automation concepts on z/OS, and an introduction to job scheduling principles.",
     content: `
       <h2>Introduction to REXX</h2>
-      <p>Replace with content on REXX origins, strengths, and use cases on z/OS.</p>
-      <h2>REXX Language Basics</h2>
+      <p><strong>REXX (Restructured Extended Executor)</strong> is the high-level scripting language built into z/OS. Designed by Mike Cowlishaw at IBM Hursley in 1979 (originally for VM/CMS), it was promoted to the standard z/OS scripting language in the 1990s and remains the default automation tool today. Every TSO/ISPF user has REXX available immediately — no install, no compile, no separate runtime; the interpreter is always loaded. REXX powers ISPF dialogs, customer-written TSO commands, batch automation, message-driven NetView automation, and Db2 stored procedures.</p>
+      <p>What makes REXX easy to pick up: it is <strong>typeless</strong> (every value is a string; numeric operations work because REXX converts on demand), <strong>case-insensitive</strong> for keywords and variable names, has minimal syntax (no semicolons except as separators, no curly braces, no required declarations), and exposes a powerful <strong>PARSE</strong> instruction that solves most string-handling tasks in one line. What makes it powerful on z/OS specifically: every TSO command, every ISPF service, every MVS console command can be issued from REXX, and the result captured back into REXX variables for further processing. REXX is the glue.</p>
+
+      <h2>Writing and Running a REXX Exec</h2>
+      <p>A REXX exec is a plain text file (FB,80 or VB,255) containing REXX source. The <strong>first line must be a REXX comment</strong> — typically <code>/* REXX */</code> — because that is how the language processor recognises the file as a REXX program rather than a CLIST. Without that comment header, TSO refuses to interpret it.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX */
+say 'Hello from the Mainframe'</pre>
+      <p>Execs typically live in a PDS — by convention <code>userid.EXEC</code> (a PDS with RECFM=FB,LRECL=80). The standard pattern is one exec per member. There are two ways to run an exec:</p>
       <ul>
-        <li><strong>Variables and expressions</strong>  placeholder.</li>
-        <li><strong>Control flow (IF, DO, SELECT)</strong>  placeholder.</li>
-        <li><strong>Built-in functions (SUBSTR, WORDS, LENGTH, DATE, TIME)</strong>  placeholder.</li>
+        <li><strong>Explicit invocation</strong> — <code>EXEC 'Z12345.EXEC(HELLO)'</code> at TSO READY. Spelled-out form. Works from any user with READ access to the dataset.</li>
+        <li><strong>Implicit invocation</strong> — <code>%HELLO</code> (or just <code>HELLO</code>) at TSO READY, where TSO searches the SYSEXEC and SYSPROC concatenations for a member named HELLO. The leading <code>%</code> tells TSO to bypass any TSO command of the same name and go straight to the exec lookup. Implicit invocation requires that your <code>SYSEXEC</code> DD (set up in your LOGON PROC or by an ALLOC) includes the library holding the exec.</li>
       </ul>
-      <h2>ISPF Services from REXX</h2>
-      <p>Using ISPEXEC to call ISPF panel services, display panels, and manipulate variables.</p>
-      <h2>Automation & Scheduling Concepts</h2>
-      <p>Introduction to automated operator responses, WTOR handling, message automation, and job scheduling triggers (time, dependency, calendar).</p>
+      <p>Output from <code>SAY</code> goes to the TSO terminal (or to STDOUT under USS / TSO-in-batch IKJEFT01). Input via <code>PULL</code> reads from the data stack (if non-empty) or interactively from the terminal.</p>
+
+      <h2>Variables and Expressions</h2>
+      <p>Every REXX variable is a string; arithmetic happens by interpretation when REXX sees an arithmetic context. No declarations — assigning a value brings the variable into existence:</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX */
+name = 'Watson'              /* string */
+count = 42                   /* still a string, treated as number when needed */
+total = count + 8            /* arithmetic; total = 50 */
+greeting = 'Hello,' name     /* concatenation with one space; result: 'Hello, Watson' */
+joined  = 'Hello,'||name     /* concatenation with no space (||) */
+say total greeting joined</pre>
+      <p>Variable names are 1–250 characters, start with a letter or one of @ # $ ! . ? _, and are case-insensitive (NAME, name, Name all refer to the same variable). Special variables: <code>RC</code> (return code from the most recent host command), <code>RESULT</code> (return value from a CALL or function), <code>SIGL</code> (line number where most recent SIGNAL fired).</p>
+      <p><strong>Stem variables</strong> — REXX's array mechanism. A variable name ending in a dot is a stem; appending a "tail" creates an indexed element. By convention <code>stem.0</code> holds the count.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">colours.1 = 'red'
+colours.2 = 'green'
+colours.3 = 'blue'
+colours.0 = 3
+do i = 1 to colours.0
+  say colours.i
+end</pre>
+
+      <h2>Control Flow</h2>
+      <p>REXX has four control-flow structures, all closed by <code>END</code>:</p>
+      <ul>
+        <li><strong>IF / THEN / ELSE</strong> — single-statement conditional:
+          <pre style="background:#0d0d0d;color:#ffb000;padding:.8rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;line-height:1.45;margin:.5rem 0;">if age &gt;= 18 then say 'adult'
+                       else say 'minor'
+if score &gt; 80 then do
+  say 'pass'
+  rank = 'A'
+end</pre>
+        </li>
+        <li><strong>SELECT / WHEN / OTHERWISE / END</strong> — multi-way branch (REXX's switch/case):
+          <pre style="background:#0d0d0d;color:#ffb000;padding:.8rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;line-height:1.45;margin:.5rem 0;">select
+  when grade = 'A' then say 'excellent'
+  when grade = 'B' then say 'good'
+  when grade = 'C' then say 'pass'
+  otherwise             say 'fail'
+end</pre>
+        </li>
+        <li><strong>DO loops</strong> — counted, conditional, or forever:
+          <pre style="background:#0d0d0d;color:#ffb000;padding:.8rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;line-height:1.45;margin:.5rem 0;">do i = 1 to 10                  /* counted */
+  say i
+end
+do i = 1 to 100 by 5            /* counted with step */
+do i = 1 to 100 while x &lt; 50    /* counted with condition */
+do forever                      /* infinite, exit with LEAVE */
+  pull line
+  if line = 'QUIT' then leave
+end
+do until x &gt; 100                /* test at end */
+  x = x + random()
+end</pre>
+        </li>
+        <li><strong>LEAVE / ITERATE</strong> — break out of / continue to the next iteration of a DO loop, like <code>break</code> / <code>continue</code> in C.</li>
+      </ul>
+
+      <h2>Built-in Functions</h2>
+      <p>REXX ships with a rich library. The most useful for everyday work:</p>
+      <ul>
+        <li><strong>String</strong> — <code>LENGTH(s)</code>, <code>SUBSTR(s,start,len)</code>, <code>POS(needle,haystack)</code>, <code>LASTPOS</code>, <code>WORDS(s)</code>, <code>WORD(s,n)</code>, <code>WORDPOS</code>, <code>TRANSLATE(s)</code> (default: upper-case), <code>STRIP(s,'B','x')</code>, <code>LEFT</code>, <code>RIGHT</code>, <code>CENTER</code>, <code>COPIES</code>, <code>OVERLAY</code>.</li>
+        <li><strong>Type/format</strong> — <code>DATATYPE(v)</code> (returns NUM, CHAR, etc.), <code>FORMAT(n,before,after)</code>, <code>X2C</code>, <code>C2X</code>, <code>D2X</code>, <code>X2D</code>.</li>
+        <li><strong>Date and time</strong> — <code>DATE()</code>, <code>DATE('S')</code> (yyyymmdd), <code>DATE('B')</code> (days since 0001-01-01 — used for date arithmetic), <code>TIME()</code>, <code>TIME('S')</code> (seconds since midnight).</li>
+        <li><strong>Stack</strong> — <code>QUEUED()</code> (count of items on data stack), <code>QUEUE 'item'</code> (FIFO add to bottom), <code>PUSH 'item'</code> (LIFO add to top), <code>PULL var</code> (remove top item — translates to upper-case), <code>PARSE PULL var</code> (remove top item — preserves case).</li>
+        <li><strong>External</strong> — <code>SYSVAR('SYSUID')</code> for user ID, <code>SYSVAR('SYSPLEX')</code>, <code>USERID()</code> (same as SYSVAR SYSUID), <code>ADDRESS()</code> (returns current host environment).</li>
+      </ul>
+
+      <h2>Subroutines and Functions</h2>
+      <p>Two interchangeable forms — same code can be called either way:</p>
+      <ul>
+        <li><strong>Subroutine call</strong>: <code>call subname arg1, arg2</code>. Result, if any, lands in special variable <code>RESULT</code>.</li>
+        <li><strong>Function call</strong>: <code>x = subname(arg1, arg2)</code>. Result is the function's return value. The same routine can be called either way.</li>
+      </ul>
+      <p>Inside the routine: <code>ARG var1, var2</code> retrieves the arguments. <code>RETURN</code> alone ends the routine; <code>RETURN value</code> ends and returns a value. <code>PROCEDURE</code> on the routine label gives it its own variable scope (variables don't leak from caller); without PROCEDURE, every variable is global. <code>PROCEDURE EXPOSE x y</code> shares only x and y with the caller.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX */
+say 'sum of 3 and 4 is' addtwo(3, 4)
+exit
+addtwo: procedure
+  arg a, b
+return a + b</pre>
+
+      <h2>Manipulating Data with PARSE</h2>
+      <p><strong>PARSE</strong> is REXX's signature instruction — it splits a source string into named variables according to a template. The template can use whitespace as the splitter, fixed positions, or named delimiters. Forms:</p>
+      <ul>
+        <li><code>PARSE VAR src var1 var2 var3</code> — split <code>src</code> on whitespace into 3 variables; the last variable absorbs the remainder.</li>
+        <li><code>PARSE VALUE expression WITH var1 var2</code> — parse the result of an expression.</li>
+        <li><code>PARSE PULL var1 var2</code> — parse from the data stack (preserves case).</li>
+        <li><code>PARSE ARG var1 var2</code> — parse from the routine's arguments.</li>
+        <li><code>PARSE UPPER PULL var</code> — like PARSE PULL but folds to upper case.</li>
+        <li>Templates with <strong>literal delimiters</strong>: <code>PARSE VAR addr name '@' domain</code> — split <code>addr</code> at the literal '@', name gets everything before, domain everything after.</li>
+        <li>Templates with <strong>positional columns</strong>: <code>PARSE VAR rec 1 empno 6 name 26 dept 30</code> — extract columns 1–5, 6–25, 26–29 into named variables. Used for fixed-width record parsing.</li>
+      </ul>
+
+      <h2>Entering Commands — Host Environments</h2>
+      <p>REXX is the glue language because any line that isn't an assignment, control flow, or instruction is treated as a <strong>host command</strong> and dispatched to the current host environment. The active environment is selected by the <code>ADDRESS</code> instruction:</p>
+      <ul>
+        <li><strong>ADDRESS TSO</strong> — issue TSO commands (LISTC, ALLOC, FREE, HRECALL). The default when an exec is run from TSO READY.</li>
+        <li><strong>ADDRESS MVS</strong> — issue MVS commands (less common; LISTBC, others).</li>
+        <li><strong>ADDRESS ISPEXEC</strong> — issue ISPF dialog services (DISPLAY PANEL, VGET/VPUT variables, TBOPEN/TBADD table services). Required when an exec runs under ISPF.</li>
+        <li><strong>ADDRESS ISREDIT</strong> — issue ISPF Editor commands when the exec is invoked as an edit macro.</li>
+        <li><strong>ADDRESS SDSF</strong> — query SDSF programmatically (for the L2 advanced REXX uses).</li>
+        <li><strong>ADDRESS LINKMVS</strong> / <strong>LINK</strong> — invoke a linked load module.</li>
+      </ul>
+      <p>After every host command, <code>RC</code> holds its return code. <code>OUTTRAP('var.')</code> redirects subsequent terminal output of TSO commands into a stem so the exec can read it back: <code>x = outtrap('lines.')</code> then <code>'LISTC LEVEL(Z12345)'</code> populates <code>lines.1</code>, <code>lines.2</code>, ..., <code>lines.0</code>=count.</p>
+
+      <h2>Job Scheduling Concepts</h2>
+      <p>REXX is one input source for automated batch; the other is the workload <strong>scheduler</strong> — IBM IWS/TWS, CA-7, Control-M (covered in detail in the L2 Advanced JCL card). Concepts every newcomer should recognise:</p>
+      <ul>
+        <li><strong>Predecessor dependency</strong> — operation B starts only after operation A completes (with optional return-code check).</li>
+        <li><strong>Time trigger</strong> — start no earlier than HH:MM.</li>
+        <li><strong>Calendar / run cycle</strong> — when the application is supposed to run (every working day, every Monday, end of month, skip holidays).</li>
+        <li><strong>Resource dependency</strong> — start only when a named resource is free; used to serialise access to shared datasets.</li>
+        <li><strong>Current plan</strong> — the live operational day-plan listing every operation expected today with its dependencies.</li>
+      </ul>
+
+      <h2>Sources &amp; References</h2>
+      <div style="margin-top:20px; padding:20px; background-color:#e8f4f8; border-left:5px solid #0066cc; border-radius:4px; font-size:0.9em; line-height:1.8;">
+        <ul style="margin: 0; padding-left: 20px; list-style-type:none;">
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-tso-e-rexx-reference" target="_blank" style="color:#0066cc; text-decoration:none;">TSO/E REXX Reference</a> (Publication SA32-0972) — the definitive language reference</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-tso-e-rexx-users-guide" target="_blank" style="color:#0066cc; text-decoration:none;">TSO/E REXX User's Guide</a> (Publication SA32-0982) — task-oriented guide with examples</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-tso-e-customization" target="_blank" style="color:#0066cc; text-decoration:none;">TSO/E Customization &amp; Programming</a> — SYSEXEC concatenation, OUTTRAP, IKJEFT01</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-ispf-services-guide" target="_blank" style="color:#0066cc; text-decoration:none;">ISPF Services Guide</a> — ADDRESS ISPEXEC service reference</li>
+          <li>• <a href="https://chamilo.hogent.be/" target="_blank" style="color:#0066cc; text-decoration:none;">HOGENT Mainframe Curriculum</a> — Chamilo course materials (01-rexx-introduction through 08-entering-commands modules)</li>
+          <li>• <a href="https://www.redbooks.ibm.com/abstracts/sg247035.html" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Redbook SG24-7035</a> — z/OS Basic Skills (REXX chapter)</li>
+          <li>• Mike Cowlishaw — "The REXX Language: A Practical Approach to Programming" (Prentice Hall, 1990) — the language designer's own book; still the best deep dive on REXX semantics.</li>
+        </ul>
+      </div>
     `,
     mcq: [
-      { question: "Which delimiter marks a REXX comment?", options: ["/* ... */", "// comment", "# comment", "REM ..."], answer: 0, explanation: "REXX uses /* ... */ for block comments." },
-      { question: "Which REXX built-in function extracts a substring?", options: ["SUBSTR()", "MID()", "SLICE()", "CUT()"], answer: 0, explanation: "SUBSTR(string, start, length) extracts a portion of a string." },
-      { question: "What TSO command executes a REXX exec stored in a PDS member?", options: ["CALL", "EXEC", "RUN", "EXECRX"], answer: 1, explanation: "The EXEC command (or implicit exec from SYSEXEC/SYSUEXEC) runs a REXX program." },
-      { question: "What does the REXX PARSE instruction do?", options: ["Runs an external program", "Splits a string into named variables using a parsing template", "Calls a subroutine", "Converts hex to decimal"], answer: 1, explanation: "PARSE breaks a string into components assigned to named variables based on whitespace or explicit delimiters." },
-      { question: "In job scheduling, what is a predecessor dependency?", options: ["A job that always runs first unconditionally", "A requirement that a prior job completes successfully before the dependent job can start", "A calendar holiday exception", "A REXX error handler"], answer: 1, explanation: "Predecessor dependencies ensure jobs execute in the correct order, waiting for upstream completion (and optionally checking the return code)." }
+      { question: "Which delimiter marks a REXX comment?", options: ["/* ... */", "// comment", "# comment", "REM ..."], answer: 0, explanation: "REXX uses /* ... */ for block comments. The very first line of every exec must be a REXX comment (typically /* REXX */) so TSO recognises the file as a REXX program." },
+      { question: "Which REXX built-in function extracts a substring?", options: ["SUBSTR()", "MID()", "SLICE()", "CUT()"], answer: 0, explanation: "SUBSTR(string, start, length) returns a portion of a string starting at the named position." },
+      { question: "What TSO command (with leading %) executes a REXX exec via the SYSEXEC search?", options: ["CALL", "%execname", "RUN", "EXECRX"], answer: 1, explanation: "%execname (e.g., %HELLO) bypasses any TSO command of the same name and forces an exec lookup through SYSEXEC/SYSPROC. EXEC 'dsname(member)' is the explicit form." },
+      { question: "What does the REXX PARSE instruction do?", options: ["Runs an external program", "Splits a source string into named variables according to a template (whitespace, literal delimiters, or column positions)", "Calls a subroutine", "Converts hex to decimal"], answer: 1, explanation: "PARSE is REXX's signature string-handling instruction. PARSE VAR src a b c splits on whitespace; PARSE VAR src 1 col1 6 col2 26 splits on column positions; PARSE VAR addr name '@' dom splits on a literal." },
+      { question: "In job scheduling, what is a predecessor dependency?", options: ["A job that always runs first unconditionally", "A requirement that a prior job completes successfully before the dependent job can start", "A calendar holiday exception", "A REXX error handler"], answer: 1, explanation: "Predecessor dependencies are the foundation of schedulers like IWS, CA-7, and Control-M — they ensure jobs execute in the correct order with optional RC checks." },
+      { question: "What is a REXX stem variable?", options: ["A stack frame", "A variable whose name ends in a dot, used as an associative array — colours.1, colours.2, colours.0=count", "A read-only constant", "A loop counter"], answer: 1, explanation: "Stem variables are REXX's array mechanism. By convention stem.0 holds the element count. Stems are passed by reference to subroutines; many built-ins (OUTTRAP, EXECIO) populate stems." },
+      { question: "What's the difference between PULL var and PARSE PULL var?", options: ["No difference", "PULL upper-cases the input; PARSE PULL preserves case", "PARSE PULL is from the stack only; PULL is from the terminal only", "PULL only works in batch"], answer: 1, explanation: "PULL is shorthand for PARSE UPPER PULL. Use PARSE PULL when case matters (e.g., reading a name to display back exactly as the user typed it)." },
+      { question: "Inside a subroutine, what does PROCEDURE do?", options: ["Marks the routine as external", "Gives the routine its own local-variable scope so caller variables are not visible inside (and vice versa)", "Forces public scope", "Has no effect"], answer: 1, explanation: "Without PROCEDURE, all variables are global to the entire exec. With PROCEDURE the routine has its own namespace — safer for reusable routines. PROCEDURE EXPOSE x y selectively shares variables x and y with the caller." },
+      { question: "What does the OUTTRAP function do?", options: ["Traps REXX errors", "Redirects the terminal output of subsequent TSO commands into a named stem variable so the exec can process it programmatically", "Opens a file for output", "Suppresses error messages"], answer: 1, explanation: "OUTTRAP('lines.') captures everything subsequent TSO commands would normally print to the terminal into lines.1, lines.2, ..., with lines.0 holding the count. The standard pattern for parsing TSO command output." },
+      { question: "Which ADDRESS environment is required to call ISPF dialog services?", options: ["ADDRESS TSO", "ADDRESS MVS", "ADDRESS ISPEXEC", "ADDRESS LINK"], answer: 2, explanation: "ADDRESS ISPEXEC dispatches ISPF services such as DISPLAY PANEL, VGET, VPUT, TBOPEN. ADDRESS ISREDIT is the related environment for ISPF Editor macros." },
+      { question: "What is the REXX special variable RESULT used for?", options: ["The system return code", "Holding the value returned by the most recent CALL", "The current line number", "The active host environment name"], answer: 1, explanation: "After CALL subname, RESULT holds whatever the routine RETURNed. RC holds the return code of the most recent host command. SIGL holds the line number of the most recent SIGNAL." },
+      { question: "What are the two ways to invoke a REXX exec from TSO?", options: ["EXEC and SUBMIT", "Explicit (EXEC 'dataset(member)') and implicit (%name via SYSEXEC search)", "RUN and EXEC", "ISPEXEC and TSOEXEC"], answer: 1, explanation: "Explicit: spell out the dataset and member. Implicit: %name (or just name) tells TSO to search the SYSEXEC/SYSPROC concatenations for a matching member. Implicit invocation is the more common day-to-day pattern." }
     ],
     practical: [
-      { title: "Task 1  Write a REXX Exec to Display System Information", description: "Create a REXX exec that prints the current date, time, and TSO ID, using DATE(), TIME(), and SYSVAR('SYSUID').", hints: ["Hint 1: SYSVAR('SYSUID') returns the current user ID.", "Hint 2: use SAY to print output to the terminal."], solution: "Expected REXX code and output. Replace with real content." },
-      { title: "Task 2  Automate an ISPF Task Using REXX", description: "Write a REXX exec that uses ISPEXEC to allocate a dataset and confirm it with LISTCAT, without requiring manual menu navigation.", hints: ["Hint 1: ADDRESS ISPEXEC 'LMINIT DATAID(id) DATASET(dsn)'", "Hint 2: check return codes from each ISPEXEC call and display results."], solution: "Expected REXX exec. Replace with real content." }
+      {
+        title: "Task 1 — Hello World (Explicit and Implicit Invocation)",
+        description: "Write the simplest possible REXX exec that displays 'Hello from the Mainframe' and run it both ways: explicitly (EXEC 'dsname(member)') and implicitly (%execname). This is the foundation exercise — every REXX exec must start with the /* REXX */ comment, and getting the two invocation styles into muscle memory pays off immediately.",
+        hints: [
+          "Hint 1: Allocate a PDS Z12345.EXEC with RECFM=FB, LRECL=80, DSORG=PO via ISPF 3.2 if you don't have one.",
+          "Hint 2: Edit a member named HELLO and add the two lines below. The /* REXX */ comment on line 1 is mandatory — without it TSO treats the file as a CLIST and fails with strange errors.",
+          "Hint 3: From TSO READY (or ISPF option 6) try the explicit form first: EXEC 'Z12345.EXEC(HELLO)' — quotes around the dataset name prevent TSO from prepending your prefix.",
+          "Hint 4: For implicit invocation, your SYSEXEC must include Z12345.EXEC. If it doesn't, allocate at logon time (LOGON proc) or temporarily with: ALTLIB ACTIVATE APPLICATION(EXEC) DATASET('Z12345.EXEC'). Then %HELLO works."
+        ],
+        solution: "<strong>Source — Z12345.EXEC(HELLO):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nsay 'Hello from the Mainframe'</pre><strong>Explicit invocation:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">READY\nEXEC 'Z12345.EXEC(HELLO)'\nHello from the Mainframe\nREADY</pre><strong>Implicit invocation:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">READY\nALTLIB ACTIVATE APPLICATION(EXEC) DATASET('Z12345.EXEC')\nREADY\n%HELLO\nHello from the Mainframe\nREADY</pre>The leading <code>%</code> on the implicit form is important: without it, TSO first tries to find a TSO command named HELLO, and only falls back to exec lookup if there is none. With <code>%</code> TSO skips the command search and goes straight to SYSEXEC/SYSPROC."
+      },
+      {
+        title: "Task 2 — Personalised Hello World (Three Variants)",
+        description: "Build three increasingly capable versions of a personalised greeting. (a) Prompt the user interactively. (b) Take the name from the command line. (c) Combine: use the command-line argument if present, otherwise prompt interactively. The third variant is the standard pattern for REXX execs that should be both scriptable and interactive.",
+        hints: [
+          "Hint 1: For interactive input use PARSE PULL name (case preserved) — not PULL alone, which upper-cases.",
+          "Hint 2: To read command-line arguments use PARSE ARG name. The argument string is everything after the exec name on the invocation line.",
+          "Hint 3: To check whether a command-line argument was supplied, test with IF name = '' THEN ... or use the LENGTH(name) function.",
+          "Hint 4: Concatenation: 'Hello from the Mainframe,' name uses one space; 'Hello, '||name uses no space."
+        ],
+        solution: "<strong>Variant (a) — interactive — Z12345.EXEC(HELLO2A):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nsay 'What is your name?'\nparse pull name\nsay 'Hello from the Mainframe,' name</pre><strong>Variant (b) — command-line — Z12345.EXEC(HELLO2B):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nparse arg name\nsay 'Hello from the Mainframe,' name</pre><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">READY\n%HELLO2B Watson\nHello from the Mainframe, Watson</pre><strong>Variant (c) — combined — Z12345.EXEC(HELLO2C):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nparse arg name\nif name = '' then do\n  say 'What is your name?'\n  parse pull name\nend\nsay 'Hello from the Mainframe,' name</pre><strong>Both invocation styles work:</strong> <code>%HELLO2C Watson</code> greets Watson directly; <code>%HELLO2C</code> alone falls into the prompt. This is the canonical 'arg-or-prompt' pattern reused in countless production execs."
+      },
+      {
+        title: "Task 3 — Email Address Validator (checkemail Subroutine)",
+        description: "Write a CHECKEMAIL subroutine that validates 'user@domain' email addresses: exactly one '@', and both user and domain must contain only letters, digits, and periods. On success, RESULT=0 and the data stack contains user and domain (PULL once gives user, PULL again gives domain). On failure, RESULT identifies what went wrong and the stack is unchanged. Test it from a main exec that loops asking for addresses until the user quits.",
+        hints: [
+          "Hint 1: Use PROCEDURE on the subroutine label so its variables don't leak into the caller. Stack operations are global, so PROCEDURE doesn't isolate the data stack.",
+          "Hint 2: To count the '@' characters, use COUNTSTR('@', addr) (modern REXX) or repeated POS calls in older releases.",
+          "Hint 3: To validate the user-and-domain character set: VERIFY(part, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.') returns 0 if every character of part is in the allowed set; otherwise it returns the position of the first invalid character.",
+          "Hint 4: To put items on the stack so PULL retrieves them in order, use QUEUE — QUEUE adds to the BOTTOM of the stack, so QUEUE user followed by QUEUE domain means PULL gets user first, then domain.",
+          "Hint 5: To leave the stack unchanged on failure, only call QUEUE after every check passes."
+        ],
+        solution: "<strong>Z12345.EXEC(CHECKEM):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nallowed = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',\n       || 'abcdefghijklmnopqrstuvwxyz',\n       || '0123456789.'\ndo forever\n  say 'Email address (or QUIT to exit):'\n  parse pull addr\n  if translate(addr) = 'QUIT' then leave\n  call checkemail addr\n  select\n    when result = 0 then do\n      pull user\n      pull domain\n      say '  valid -- user=' || user '  domain=' || domain\n    end\n    when result = 1 then say '  invalid: must contain exactly one @ sign'\n    when result = 2 then say '  invalid: user contains illegal characters'\n    when result = 3 then say '  invalid: domain contains illegal characters'\n    otherwise            say '  unknown error'\n  end\nend\nexit\n\ncheckemail: procedure expose allowed\n  arg addr\n  if countstr('@', addr) ¬= 1 then return 1\n  parse var addr user '@' domain\n  if verify(user,   allowed) ¬= 0 then return 2\n  if verify(domain, allowed) ¬= 0 then return 3\n  queue user\n  queue domain\nreturn 0</pre><strong>Sample run:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">%CHECKEM\nEmail address (or QUIT to exit):\nwatson@hogent.be\n  valid -- user=watson  domain=hogent.be\nEmail address (or QUIT to exit):\nbad@@two\n  invalid: must contain exactly one @ sign\nEmail address (or QUIT to exit):\nQUIT</pre><strong>Notes:</strong> COUNTSTR is a modern REXX built-in (TSO/E REXX V4+). On older releases use a counting loop with POS instead. The PROCEDURE EXPOSE allowed clause shares the allowed-character constant with the subroutine without exposing the rest of the caller's variables."
+      },
+      {
+        title: "Task 4 — Age in Days (with Leap-Year Validation)",
+        description: "Calculate someone's age in days from a birthday entered as dd/mm/yyyy. Then enhance the program to first validate the input: each component must be a whole number, the day must be valid for the month, and leap years must be handled correctly per the standard rule (divisible by 4, except divisible by 100, except divisible by 400).",
+        hints: [
+          "Hint 1: REXX has DATE('B') which returns 'days since 0001-01-01' for any date. The trick: DATE('B') alone returns today's count; to convert a specific date to base days, use DATE('B', 'dd/mm/yyyy', 'E') — the third argument 'E' specifies European day/month/year input format.",
+          "Hint 2: Once you have the birthday's base-day count and today's base-day count, subtract them. That's the age in days.",
+          "Hint 3: To validate components are whole numbers, use DATATYPE(d, 'W') which returns 1 for whole numbers and 0 otherwise.",
+          "Hint 4: For days-per-month, set up an array stem like dpm.1=31, dpm.2=28 (29 if leap), dpm.3=31, etc.",
+          "Hint 5: Leap year function: a year Y is a leap year iff (Y//4=0 AND Y//100¬=0) OR Y//400=0. The // operator is REXX's modulo."
+        ],
+        solution: "<strong>Z12345.EXEC(AGEDAYS):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nsay 'Enter birthday as dd/mm/yyyy:'\nparse pull bd\nparse var bd day '/' month '/' year\n\n/* validate components are whole numbers */\nif ¬datatype(day,'W')   | ¬datatype(month,'W') | ¬datatype(year,'W') then\n  do; say 'invalid: components must be whole numbers'; exit 8; end\n\n/* validate ranges */\nif month &lt; 1 | month &gt; 12 then do; say 'invalid month'; exit 8; end\n\n/* days per month, accounting for leap year */\ndpm.1=31; dpm.2=28; dpm.3=31; dpm.4=30; dpm.5=31; dpm.6=30\ndpm.7=31; dpm.8=31; dpm.9=30; dpm.10=31; dpm.11=30; dpm.12=31\nif leap(year) then dpm.2 = 29\n\nif day &lt; 1 | day &gt; dpm.month then\n  do; say 'invalid day for month' month; exit 8; end\n\n/* convert to base days and subtract */\nbirthday_b = date('B', right(day,2,'0')||'/'||right(month,2,'0')||'/'||year, 'E')\ntoday_b    = date('B')\nage = today_b - birthday_b\nsay 'You are' age 'days old.'\nexit 0\n\nleap: procedure\n  arg y\n  if y // 400 = 0 then return 1\n  if y // 100 = 0 then return 0\n  if y //   4 = 0 then return 1\nreturn 0</pre><strong>Sample runs:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">%AGEDAYS\nEnter birthday as dd/mm/yyyy:\n29/02/2000     /* leap year, valid */\nYou are 9559 days old.\n\n%AGEDAYS\nEnter birthday as dd/mm/yyyy:\n29/02/1900     /* divisible by 100 but not 400 -- NOT a leap year */\ninvalid day for month 2</pre><strong>Notes:</strong> the leap subroutine implements the full Gregorian rule. The right(x,2,'0') call zero-pads single-digit days/months so DATE('B') accepts the format. DATE('B') was chosen because it gives day counts amenable to subtraction; DATE('S') would give yyyymmdd which is harder to subtract."
+      },
+      {
+        title: "Task 5 — mymax Procedure (Stack Preserved)",
+        description: "Write a mymax procedure that finds the maximum value among the top N items on the data stack, where N is the procedure's only argument. Crucially, the stack must be unchanged after the call — every item that was on top before must still be on top after, in the same order. Demonstrate calling it both as a function (x = mymax(N)) and as a subroutine (call mymax N).",
+        hints: [
+          "Hint 1: To 'peek' at stack items without consuming them, you have to pull them, save them, find the max, then push them back. PUSH adds to the top (LIFO), so to restore order, push them in reverse order.",
+          "Hint 2: Easiest pattern: PARSE PULL into a stem, find the max, then push the stem items back in reverse order.",
+          "Hint 3: For 'works as both function and subroutine,' just write a normal subroutine that uses RETURN value. Then x = mymax(3) is a function call (RESULT placed in x); CALL mymax 3 is a subroutine call (RESULT in special variable RESULT)."
+        ],
+        solution: "<strong>Z12345.EXEC(MYMAXTST):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\n/* set up some stack data */\nqueue '17'\nqueue '42'\nqueue '8'\nqueue '23'\nqueue '99'\n\n/* call as function */\nx = mymax(5)\nsay 'function form returned:' x\n\n/* stack must still have all 5 items */\nsay 'stack still contains' queued() 'items:'\ndo queued()\n  pull item\n  say '  ' item\nend\n\n/* re-prime and call as subroutine */\nqueue '17'; queue '42'; queue '8'; queue '23'; queue '99'\ncall mymax 5\nsay 'subroutine form put RESULT =' result\nexit\n\nmymax: procedure\n  arg n\n  /* save items into stem */\n  do i = 1 to n\n    parse pull items.i\n  end\n  /* find max */\n  m = items.1\n  do i = 2 to n\n    if items.i &gt; m then m = items.i\n  end\n  /* push back in reverse order so top item ends up on top again */\n  do i = n to 1 by -1\n    push items.i\n  end\nreturn m</pre><strong>Sample output:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">%MYMAXTST\nfunction form returned: 99\nstack still contains 5 items:\n   99\n   23\n   8\n   42\n   17\nsubroutine form put RESULT = 99</pre><strong>Note:</strong> PROCEDURE on mymax keeps its loop variables out of the caller, but the data stack is global and not affected by PROCEDURE. The save/restore pattern via stem variables is the standard idiom for 'inspect without consuming.'"
+      },
+      {
+        title: "Task 6 — cat: Display Dataset Records with Visible Boundaries",
+        description: "Write a REXX exec that takes a dataset name on the command line and displays every record bracketed by > and < so record boundaries are clearly visible (similar to Unix cat with marker characters). Test it on its own source for the canonical self-referential demo.",
+        hints: [
+          "Hint 1: Allocate the input dataset to a DDname using TSO ALLOC, then read it with EXECIO. Free the DD with TSO FREE when done.",
+          "Hint 2: EXECIO * DISKR ddname (FINIS STEM rec.) reads every record into rec.1 ... rec.N and sets rec.0 to the count.",
+          "Hint 3: If the dataset name on the command line is already enclosed in quotes, REXX receives it with quotes — pass it directly to ALLOC. If unquoted, ALLOC will prepend the user's prefix; that's usually what's wanted.",
+          "Hint 4: To display each record with > and < markers, just SAY '>' || rec.i || '<'. The || operator concatenates without a space."
+        ],
+        solution: "<strong>Z12345.EXEC(CAT):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nparse arg dsn\nif dsn = '' then do\n  say 'usage: cat dataset-name'\n  exit 8\nend\n\n'ALLOC FI(INDD) DA('dsn') SHR REUSE'\nif rc ¬= 0 then do\n  say 'allocation failed, RC=' rc\n  exit 8\nend\n\n'EXECIO * DISKR INDD (FINIS STEM rec.)'\n'FREE FI(INDD)'\n\ndo i = 1 to rec.0\n  say '&gt;' || rec.i || '&lt;'\nend\n\nexit 0</pre><strong>Sample invocation (cat displaying its own source):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">%CAT 'Z12345.EXEC(CAT)'\n&gt;/* REXX */                                                                       &lt;\n&gt;parse arg dsn                                                                   &lt;\n&gt;if dsn = '' then do                                                             &lt;\n&gt;  say 'usage: cat dataset-name'                                                 &lt;\n...</pre><strong>Note:</strong> the trailing-space padding is FB,80 record format showing through — every record is exactly 80 columns wide, and you can see each one's right edge by the position of the '<'. The fact that the source is FB80 makes this very obvious; on a VB dataset records are variable-length so the < markers would line up much closer to the actual content."
+      },
+      {
+        title: "Task 7 — Unique Lines Counter",
+        description: "Read a sequential dataset (or PDS member) into a stem, then write a new dataset where each line is prefixed with the count of how many times it appeared in the original — but in the original first-appearance order. Stop with RC=8 if the input allocation fails. Make sure the source dataset has line numbers turned off (number off in ISPF Edit) before testing.",
+        hints: [
+          "Hint 1: After EXECIO into rec., loop through. For each rec.i, scan keys.1 through keys.k looking for a previous match. If found, increment count.j. If not found, add as a new key.",
+          "Hint 2: The new dataset's records need format 'count:original line'. Pre-allocate the output with TSO ALLOC NEW LIKE() referencing the input so RECFM/LRECL match — but use a slightly larger LRECL to accommodate the count prefix.",
+          "Hint 3: EXECIO * DISKW ddname (FINIS STEM out.) writes the entire stem to the output DD.",
+          "Hint 4: Don't forget the RC=8 exit on allocation failure."
+        ],
+        solution: "<strong>Z12345.EXEC(UNIQ):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nparse arg indsn outdsn\nif indsn = '' | outdsn = '' then do\n  say 'usage: uniq input-dsn output-dsn'\n  exit 8\nend\n\n'ALLOC FI(INDD)  DA('indsn')  SHR REUSE'\nif rc ¬= 0 then do; say 'in alloc failed'; exit 8; end\n\n'ALLOC FI(OUTDD) DA('outdsn') NEW CATALOG REUSE',\n   'SPACE(5,2) TRACKS RECFM(F B) LRECL(120) BLKSIZE(0) DSORG(PS)'\nif rc ¬= 0 then do; say 'out alloc failed'; 'FREE FI(INDD)'; exit 8; end\n\n'EXECIO * DISKR INDD (FINIS STEM rec.)'\n\nk = 0  /* number of unique lines so far */\ndo i = 1 to rec.0\n  found = 0\n  do j = 1 to k\n    if keys.j = rec.i then do\n      cnts.j = cnts.j + 1\n      found = 1\n      leave\n    end\n  end\n  if ¬found then do\n    k = k + 1\n    keys.k = rec.i\n    cnts.k = 1\n  end\nend\n\n/* build output stem in first-appearance order */\nout.0 = k\ndo i = 1 to k\n  out.i = right(cnts.i,4) || ':' || keys.i\nend\n\n'EXECIO * DISKW OUTDD (FINIS STEM out.)'\n'FREE FI(INDD OUTDD)'\nsay k 'unique lines written to' outdsn\nexit 0</pre><strong>Sample:</strong> input contains 'apple', 'pear', 'apple', 'banana', 'apple', 'pear'. Output:<pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">   3:apple\n   2:pear\n   1:banana</pre>First-appearance order preserved. The count is right-aligned in 4 columns for tidy display. <strong>Important reminder:</strong> in ISPF Edit, type NUMBER OFF on the command line before saving the input dataset — otherwise ISPF stores 8-character line numbers in columns 73-80 of every record, which then become part of the 'line content' when read by EXECIO and break uniqueness comparisons."
+      },
+      {
+        title: "Task 8 — Producing a Dataset List with S/P Indicators",
+        description: "Write an exec that lists every dataset under your TSO ID, indicating whether each is sequential (S) or partitioned (P). Output should be aligned so the type indicator always appears in the same column (e.g., column 46, just past the 44-char DSN limit).",
+        hints: [
+          "Hint 1: Use TSO LISTC LEVEL(yourid) and capture the output via OUTTRAP. The output is verbose — every catalog entry is dumped with multiple lines.",
+          "Hint 2: Easier: use the LISTDSI built-in REXX function — LISTDSI('dsname') populates a set of variables (SYSDSORG, SYSRECFM, SYSLRECL, etc.) with the dataset's catalog and DCB info. SYSDSORG returns 'PS' for sequential, 'PO' for PDS, 'PO-E' for PDSE.",
+          "Hint 3: To get the dataset names first, use LISTC LEVEL(yourid) with OUTTRAP, then parse each line for the dataset name (LISTC outputs lines like 'NONVSAM ------- yourid.dataset.name').",
+          "Hint 4: Use LEFT(dsn, 44) to pad/truncate to exactly 44 characters so the type indicator lines up in column 46."
+        ],
+        solution: "<strong>Z12345.EXEC(MYDSN):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nuid = sysvar('SYSUID')\n\nx = outtrap('lines.')\n'LISTC LEVEL('uid')'\nx = outtrap('OFF')\n\ndo i = 1 to lines.0\n  /* LISTC dataset entries look like:\n       NONVSAM ------- userid.dataset.name           */\n  parse var lines.i type '-------' dsn\n  dsn = strip(dsn)\n  if dsn = '' then iterate\n\n  /* probe organisation with LISTDSI */\n  rc2 = listdsi(\"'\" || dsn || \"'\")\n  if rc2 = 0 then do\n    select\n      when sysdsorg = 'PS'   then ind = 'S'\n      when sysdsorg = 'PO'   then ind = 'P'\n      when sysdsorg = 'PO-E' then ind = 'P'\n      otherwise                   ind = '?'\n    end\n  end\n  else ind = '?'\n\n  say left(dsn, 44) ' ' ind\nend\nexit 0</pre><strong>Sample output:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">Z12345.EXEC                                    P\nZ12345.JCL.CNTL                                P\nZ12345.PAYROLL.GDG.G0001V00                    S\nZ12345.PAYROLL.GDG.G0002V00                    S\nZ12345.TEST.SEQ                                S\nZ12345.TEST.CNTL                               P\n...</pre><strong>Note:</strong> LISTDSI may return non-zero if the dataset is migrated (HSM) or if you don't have read access. Handle these by displaying '?' as the indicator. LEFT(dsn,44) truncates names longer than 44 chars (impossible in practice — that's the system limit) and pads shorter ones to exactly 44 with trailing spaces, so the column-46 indicator always lines up."
+      },
+      {
+        title: "Task 9 — Interactive Dataset Allocator",
+        description: "Build a REXX exec that interactively prompts the user for everything needed to allocate a new dataset: name (with quoted-vs-unquoted handling), organisation (S or P), space units, primary/secondary extents, directory blocks (PDS only), record format, and record length. Validate each input, then issue the TSO ALLOC command, and report success or failure.",
+        hints: [
+          "Hint 1: Read each parameter with PARSE PULL (case-preserving). For the DSN, if the user enters it in single quotes, use it literally; if unquoted, prepend the SYSUID prefix.",
+          "Hint 2: Validate organisation with a SELECT/WHEN against 'S', 'P', or 'PE' (PDSE).",
+          "Hint 3: Validate space units against TRK, CYL, BLK. Validate primary/secondary as positive whole numbers via DATATYPE(x,'W').",
+          "Hint 4: Build the ALLOC command string by concatenation: 'ALLOC DA(' || dsn || ') NEW CATALOG ...'. The output stem from a previous OUTTRAP can be checked for IKJ messages.",
+          "Hint 5: TSO ALLOC's RC tells you if it worked. RC=0 success; non-zero usually means the dataset already exists, you don't have authority, or one of the parameters is invalid."
+        ],
+        solution: "<strong>Z12345.EXEC(MAKEDSN):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nuid = sysvar('SYSUID')\n\nsay 'Dataset name (in single quotes for absolute, otherwise prefix' uid 'is added):'\nparse pull dsn\nif left(dsn,1) ¬= \"'\" then dsn = uid || '.' || dsn\nelse                       dsn = strip(dsn,'B',\"'\")\n\nsay 'Organisation (S = sequential, P = PDS, PE = PDSE):'\nparse upper pull org\nif wordpos(org,'S P PE') = 0 then do; say 'invalid org'; exit 8; end\n\nsay 'Space units (TRK / CYL / BLK):'\nparse upper pull units\nif wordpos(units,'TRK CYL BLK') = 0 then do; say 'invalid units'; exit 8; end\n\nsay 'Primary extent:'\nparse pull pri\nif ¬datatype(pri,'W') | pri &lt; 1 then do; say 'invalid primary'; exit 8; end\n\nsay 'Secondary extent:'\nparse pull sec\nif ¬datatype(sec,'W') | sec &lt; 0 then do; say 'invalid secondary'; exit 8; end\n\ndir = 0\nif org \\= 'S' then do\n  say 'Directory blocks (PDS) or zero (PDSE):'\n  parse pull dir\n  if ¬datatype(dir,'W') | dir &lt; 0 then do; say 'invalid dir'; exit 8; end\nend\n\nsay 'Record format (e.g., FB, VB, U):'\nparse upper pull recfm\n\nsay 'Record length:'\nparse pull lrecl\nif ¬datatype(lrecl,'W') | lrecl &lt; 1 then do; say 'invalid lrecl'; exit 8; end\n\n/* assemble ALLOC command */\ncmd = \"ALLOC DA('\" || dsn || \"') NEW CATALOG REUSE\",\n   || \" SPACE(\" pri sec \") \" units,\n   || \" RECFM(\" || space(translate(recfm,' ','')) || \")\",\n   || \" LRECL(\" lrecl \") BLKSIZE(0)\"\n\nselect\n  when org = 'S'  then cmd = cmd \" DSORG(PS)\"\n  when org = 'P'  then cmd = cmd \" DIR(\" dir \") DSORG(PO)\"\n  when org = 'PE' then cmd = cmd \" DSNTYPE(LIBRARY)\"\nend\n\nsay 'Issuing:' cmd\ncmd\nif rc = 0 then say 'OK -- ' dsn ' allocated.'\n         else say 'allocation failed RC=' rc\nexit rc</pre><strong>Sample run:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">%MAKEDSN\nDataset name ...\nTEST.NEW.SEQ\nOrganisation ...\nS\nSpace units ...\nTRK\nPrimary extent: 5\nSecondary extent: 2\nRecord format: FB\nRecord length: 80\nIssuing: ALLOC DA('Z12345.TEST.NEW.SEQ') NEW CATALOG REUSE SPACE(5 2) TRK RECFM(F B) LRECL(80) BLKSIZE(0) DSORG(PS)\nOK -- Z12345.TEST.NEW.SEQ allocated.</pre>"
+      },
+      {
+        title: "Task 10 — Find PDS Members Containing a String",
+        description: "Search every member of a given PDS for a target string and display the names of members where it occurs. The PDS and the string come from the command line. Optionally support wildcards in the PDS name to search across multiple libraries in one run.",
+        hints: [
+          "Hint 1: To list members of a PDS programmatically, allocate the PDS to a DDname and use ISPF LMINIT/LMOPEN/LMMLIST services (ADDRESS ISPEXEC). Alternatively, use TSO LISTDS DA('dsn') MEMBERS with OUTTRAP capturing the output.",
+          "Hint 2: For the search itself: for each member, allocate it to INDD as 'dsn(member)', EXECIO into a stem, scan with POS or INDEX for the target string, free, and report.",
+          "Hint 3: For multiple PDSs via wildcards: use LISTC LEVEL() to find matching dataset names, filter to PDSs (LISTDSI SYSDSORG = 'PO' or 'PO-E'), then loop over each matched PDS calling the same search routine."
+        ],
+        solution: "<strong>Z12345.EXEC(PDSGREP):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nparse arg pds needle\nif pds = '' | needle = '' then do\n  say 'usage: pdsgrep pds-dsn search-string'\n  exit 8\nend\nif left(needle,1) = \"'\" then needle = strip(needle,'B',\"'\")\n\n/* list members via TSO LISTDS */\nx = outtrap('mlist.')\n\"LISTDS '\" || pds || \"' MEMBERS\"\nx = outtrap('OFF')\n\n/* skip header lines (typically the first 6 lines describe the dataset)   */\n/* member names appear after the line containing '--MEMBERS--'            */\nin_members = 0\ndo i = 1 to mlist.0\n  if pos('--MEMBERS--', mlist.i) &gt; 0 then do; in_members = 1; iterate; end\n  if ¬in_members then iterate\n  member = strip(mlist.i)\n  if member = '' then iterate\n\n  /* search this member */\n  'ALLOC FI(MEMDD) DA(' || \"'\" || pds || '(' || member || \")'\" || ') SHR REUSE'\n  if rc ¬= 0 then iterate\n  'EXECIO * DISKR MEMDD (FINIS STEM rec.)'\n  'FREE FI(MEMDD)'\n\n  do j = 1 to rec.0\n    if pos(needle, rec.j) &gt; 0 then do\n      say 'Found in member' member 'at line' j\n      leave    /* stop scanning once we have a hit; remove to find all */\n    end\n  end\nend\nexit 0</pre><strong>Sample run:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">%PDSGREP Z12345.JCL.CNTL IEFBR14\nFound in member ALLOC at line 4\nFound in member NOOPJOB at line 3\nFound in member RESTART2 at line 7\n...</pre><strong>Wildcard extension:</strong> wrap the body in another loop driven by LISTC LEVEL(prefix) to enumerate matching PDSs, calling LISTDSI to filter PDS organisations only. Add ALLOC error handling for migrated datasets (HSM)."
+      },
+      {
+        title: "Task 11 — EMPINFO: Print Employee Records (Fixed-Width Parse)",
+        description: "Read a fixed-width employee dataset and print one formatted line per employee. The record layout is: Employee Number (5), Name (20), Building (2), Office (2), Salary (6), SSN (9), Dependants (2), Job Code (2), Unused (30) — all alphanumeric except Salary and Dependants. Use PARSE with column positions to extract each field, then format the output exactly as specified (with the right number of spaces between fields).",
+        hints: [
+          "Hint 1: Allocate the dataset BA1920.DATA.EMP via TSO ALLOC and read with EXECIO into a stem.",
+          "Hint 2: PARSE with positional templates is perfect here: PARSE VAR rec 1 empno 6 name 26 bldg 28 office 30 salary 36 ssn 45 deps 47 jobc 49 — the numbers are start positions of each field.",
+          "Hint 3: For output formatting, build the line by concatenation with COPIES(' ', n) for the variable number of spaces between fields."
+        ],
+        solution: "<strong>Z12345.EXEC(EMPINFO):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\n'ALLOC FI(EMPDD) DA(' || \"'BA1920.DATA.EMP'\" || ') SHR REUSE'\nif rc ¬= 0 then do; say 'allocation failed'; exit 8; end\n\n'EXECIO * DISKR EMPDD (FINIS STEM emp.)'\n'FREE FI(EMPDD)'\n\ndo i = 1 to emp.0\n  parse var emp.i 1 empno 6 name 26 bldg 28 office 30 salary 36 ssn 45 deps 47 jobc 49\n  /*   5 sp + empno + 2 sp + name + 1 sp + bldg + 3 sp + office + 2 sp + salary + 2 sp + ssn + 2 sp + deps + 2 sp + jobc */\n  line = copies(' ',5) || empno,\n      || copies(' ',2) || name,\n      || copies(' ',1) || bldg,\n      || copies(' ',3) || office,\n      || copies(' ',2) || salary,\n      || copies(' ',2) || ssn,\n      || copies(' ',2) || deps,\n      || copies(' ',2) || jobc\n  say line\nend\nexit 0</pre><strong>Sample output:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">     E0001  SMITH JOHN          A   01    050000   123456789   2   01\n     E0002  JONES MARY          A   02    045000   234567891   0   02\n     E0003  PEREZ ANA           B   01    062000   345678912   3   01\n...</pre><strong>Notes:</strong> the positional PARSE template numbers represent column 1-based start positions. PARSE VAR emp.i 1 empno 6 reads columns 1-5 into empno; PARSE ... 6 name 26 reads columns 6-25 into name. Each field's end column is the next field's start column. Fields 'salary', 'deps' are numeric in concept but stored as character — REXX is happy treating them either way."
+      },
+      {
+        title: "Task 12 — SALRISE: Update Records Selectively (with Backup)",
+        description: "Read the BA1920.DATA.EMP dataset record by record. For every employee with at least 2 dependants, give them a 2% pay rise (rounded to integer). Write the updated records back to the same dataset. Important safety rule: make a backup copy before modifying — IEBGENER can do this in a separate step or you can do it in REXX with EXECIO.",
+        hints: [
+          "Hint 1: Always back up first. Either submit a tiny IEBGENER JCL job ahead of time, or do it in REXX: ALLOC the source, EXECIO into a stem, ALLOC a NEW backup dataset, EXECIO out to the backup, FREE both.",
+          "Hint 2: For the update, allocate the source twice — once for read, once for write — or read everything into a stem, modify the stem, then write the stem back. The stem-modify-rewrite approach is simpler.",
+          "Hint 3: To extract salary as a number for arithmetic: PARSE the record into fields, then salary_num = salary + 0 forces numeric interpretation. Apply 2% raise: new_salary = salary_num + (salary_num * 2 / 100). Use TRUNC() or FORMAT() to round.",
+          "Hint 4: To rebuild the record, use OVERLAY: new_rec = overlay(right(new_salary,6,'0'), original_rec, 30, 6) — replaces 6 chars starting at position 30 with the right-padded new salary."
+        ],
+        solution: "<strong>Z12345.EXEC(SALRISE):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nsrc = 'BA1920.DATA.EMP'\nbak = 'Z12345.EMP.BACKUP'\n\n/* === make backup === */\n'ALLOC FI(SRC) DA(' || \"'\" || src || \"'\" || ') SHR REUSE'\nif rc ¬= 0 then do; say 'src alloc failed'; exit 8; end\n'EXECIO * DISKR SRC (FINIS STEM emp.)'\n\n'ALLOC FI(BAK) DA(' || \"'\" || bak || \"'\" || ') NEW CATALOG REUSE',\n   'SPACE(5,2) TRACKS LIKE(' || \"'\" || src || \"'\" || ')'\nif rc ¬= 0 then do; say 'bak alloc failed'; exit 8; end\n'EXECIO * DISKW BAK (FINIS STEM emp.)'\n'FREE FI(BAK)'\nsay 'Backup created:' bak\n\n/* === apply 2% rise to records with deps >= 2 === */\nupdated = 0\ndo i = 1 to emp.0\n  parse var emp.i 1 prefix 30 salary 36 mid 45 deps 47 rest\n  if datatype(deps,'W') &amp; deps &gt;= 2 then do\n    new_sal = trunc(salary + (salary * 2 / 100))\n    /* zero-pad to 6 digits */\n    new_sal = right(new_sal, 6, '0')\n    emp.i = overlay(new_sal, emp.i, 30, 6)\n    updated = updated + 1\n  end\nend\n\n/* === write the modified stem back over the original === */\n'ALLOC FI(SRC) DA(' || \"'\" || src || \"'\" || ') OLD REUSE'\n'EXECIO * DISKW SRC (FINIS STEM emp.)'\n'FREE FI(SRC)'\n\nsay updated 'employees received the 2% raise.'\nexit 0</pre><strong>Sample output:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">%SALRISE\nBackup created: Z12345.EMP.BACKUP\n47 employees received the 2% raise.</pre><strong>Notes:</strong> the OVERLAY function is the standard way to write a new value into a fixed position of an existing record without disturbing other fields — it returns a string with the substring at the named position replaced. RIGHT(new_sal, 6, '0') zero-pads the new salary to exactly 6 digits so it fits the 6-byte salary field. <strong>Safety reminder:</strong> the backup step is not optional — running this exec on a real dataset without backup means a bug irreversibly corrupts production data. Always test on a copy first; if the result looks right, then point SRC at the production dataset."
+      }
     ]
   },
 
@@ -2003,28 +2477,116 @@ END</pre>
     summary: "Advanced PROC usage, symbolic parameter overrides, step restart and checkpoint/restart recovery techniques, and enterprise workload scheduling product awareness.",
     content: `
       <h2>Advanced PROC Usage</h2>
-      <p>Replace with content on nested PROCs, symbolic override on the EXEC statement, and PROC library concatenation.</p>
-      <h2>Restart and Recovery</h2>
+      <p>The L1 utilities card introduced PROCs, symbolic parameters, and DD overrides. Production JCL goes further: <strong>nested PROCs</strong>, <strong>JCLLIB</strong> for ad-hoc PROC searches, <strong>multi-level concatenation</strong> in the JES2 PROCLIB stack, and override patterns that can target individual sub-statements deep inside a PROC tree.</p>
       <ul>
-        <li><strong>Step restart (RESTART= on JOB)</strong>  placeholder.</li>
-        <li><strong>Checkpoint/restart (CHKPT macro + SYSCHK DD)</strong>  placeholder.</li>
-        <li><strong>JESREQUEUE and operator restart</strong>  placeholder.</li>
+        <li><strong>Nested PROCs</strong> — a PROC may EXEC another PROC. JES expands them recursively at job conversion. The MVS limit is 15 nested levels; in practice, 3 or 4 levels is the comfort ceiling — beyond that the override syntax for inner DDs becomes hard to read (<code>//STEP1.SUBSTEP.DDNAME DD ...</code> with each dot-separated qualifier walking one level deeper).</li>
+        <li><strong>JCLLIB statement</strong> — <code>//procname JCLLIB ORDER=(USER.PROC.LIB,SYS1.PROCLIB)</code> placed near the top of a job tells JES to search those libraries (in order) for any PROCs the job references, ahead of the standard PROCLIB stack. This is how a developer tests a modified PROC from their own library without installing into a system PROCLIB.</li>
+        <li><strong>JES2 PROCLIB concatenation</strong> — JES2 itself is started with a fixed list of PROCLIB datasets concatenated as PROC00, PROC01, etc. (defined in JES2PARM PROCLIB statements). When a job EXECs a PROC name, JES searches the concatenation in order. The default is PROC00 = SYS1.PROCLIB; sites add additional datasets for site-specific or vendor PROCs. The order matters: a PROC name appearing in PROC00 hides the same name in any later PROCLIB.</li>
+        <li><strong>Override targeting</strong> — to override a DD inside a step inside a nested PROC, the override DD name uses dotted-step-name qualification: <code>//&lt;outer-step&gt;.&lt;inner-step&gt;.&lt;ddname&gt; DD ...</code>. JES applies overrides in JCL order; multiple overrides of the same DD are merged left-to-right.</li>
+        <li><strong>Symbolic parameter scope</strong> — a symbolic referenced inside an inner PROC must be either defined on the inner PROC's header (with optional default) or passed in by the outer caller. Otherwise IEFC658I 'symbol not defined' fires at conversion. The <code>EXPORT</code> JCL statement (<code>// EXPORT SYMLIST=(SYM1,SYM2)</code>) propagates symbolic values from the calling job into nested PROCs without the inner PROC having to declare them.</li>
+        <li><strong>SET statement</strong> — <code>// SET SYM1=value</code> assigns or overrides a symbolic at job-conversion time, useful when you want to declare values at the top of a job rather than embed them in EXEC parameter lists.</li>
       </ul>
-      <h2>Workload Scheduling Awareness</h2>
-      <p>Introduce IBM Workload Scheduler (IWS/TWS), CA7, and their integration with JES for dependency-based scheduling.</p>
+
+      <h2>Restart and Recovery</h2>
+      <p>Production batch streams measured in hours sometimes fail mid-flight. Re-running from step 1 wastes time, blows the batch window, and re-processes records the failed run already touched. <strong>Restart</strong> is the family of mechanisms that lets you resume from where the failure occurred instead of from the start.</p>
+
+      <p><strong>Step restart with the JOB RESTART= parameter</strong> is the simplest mechanism. The original job ran STEP1, STEP2, STEP3, STEP4; STEP3 failed. After fixing whatever caused the failure, resubmit the same JCL but add <code>RESTART=STEP3</code> on the JOB statement:</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">//RESTRTJB JOB (ACCT),'RESTART AT STEP3',CLASS=A,MSGCLASS=H,
+//             NOTIFY=&amp;SYSUID,RESTART=STEP3
+//STEP1    EXEC PGM=...
+//STEP2    EXEC PGM=...
+//STEP3    EXEC PGM=...     /* execution starts here */
+//STEP4    EXEC PGM=...</pre>
+      <p>JES bypasses STEP1 and STEP2 entirely (they appear in JESYSMSG with IEF202I 'STEP WAS NOT EXECUTED') and starts execution at STEP3. The full JCL must still be present and syntactically valid, including all DDs of the bypassed steps — JES needs them to do allocation chaining for DDs that PASS data forward.</p>
+
+      <p><strong>Restart at a step inside a PROC:</strong> use the dotted form <code>RESTART=stepname.procstep</code>. For example, <code>RESTART=STEP2.COPY</code> restarts at the COPY substep within STEP2 (assuming STEP2 was an EXEC PROC=...).</p>
+
+      <p><strong>Designing JCL for restartability</strong> is the harder problem. The DISP triplet must be coded so that re-running an already-completed prior step doesn't fail with 'dataset already exists,' and so that work-in-progress datasets are cleaned up properly when the job aborts:</p>
+      <ul>
+        <li><strong>Output datasets created in earlier (now-skipped) steps</strong> — change DISP from <code>(NEW,CATLG,DELETE)</code> to <code>(MOD,CATLG,DELETE)</code> for re-runs, or write a "cleanup" pre-step that deletes the stale output before retry.</li>
+        <li><strong>Datasets PASSed between steps</strong> — RESTART= cannot recover PASSed datasets; they were temporary and only existed during the original job. The design alternative is to CATLG them under temporary names so a restart can pick them up.</li>
+        <li><strong>GDG generations</strong> — within one job, every <code>(+1)</code> reference resolves to the same new generation. If the job aborts mid-flight, that <code>(+1)</code> generation is in 'in-progress' state. On restart with RESTART=, the relative numbering must point at the same generation — usually achieved by adding a step at the start that deletes-and-recreates so restart starts fresh.</li>
+      </ul>
+
+      <p><strong>Checkpoint/restart</strong> is the heavier mechanism for genuinely long-running steps where re-processing the entire input is unacceptable. The program (commonly a sort or a custom application) issues the <strong>CHKPT macro</strong> at intervals, which writes a snapshot of the program's state — record count, position in the input file, work-area contents — to a checkpoint dataset. On failure, the JCL is resubmitted with <code>RESTART=stepname,CHECKID=ck-id</code> and a <code>//SYSCHK DD</code> pointing at the checkpoint dataset. The program restarts from the named checkpoint instead of the beginning. <strong>DFSORT</strong> supports this natively via the <code>OPTION CKPT</code> control statement; COBOL programs can use the RERUN clause; assembler programs use the CHKPT macro directly. Checkpoint/restart is rarer in modern shops because most long-running work has been broken up into smaller restartable steps, but it is still found in legacy COBOL/PL1 batch and in massive overnight sort cycles.</p>
+
+      <p><strong>Operator-driven restart:</strong> from the SDSF console, operators can issue <code>$T J,jobid,RESTART</code> or use SDSF line commands to put a held job back through the queue. JES2 also supports <strong>requeue</strong> commands that move a failed job back into the input queue with the original JCL preserved, ready for resubmission after manual fixup.</p>
+
+      <h2>Workload Scheduling</h2>
+      <p>JES2 by itself runs jobs in the order they're submitted (with class and priority refinements). Production batch needs much more: time-of-day triggers, calendar-based runs (every Monday, every month-end, skip holidays), multi-job dependency networks (job B starts only after job A succeeds and job X has completed), cross-system dependencies in a sysplex, automatic re-run on transient failures, and audit trails. For these requirements every production z/OS shop runs a <strong>workload scheduler</strong> on top of JES.</p>
+
+      <ul>
+        <li><strong>IBM Workload Scheduler for z/OS (IWS, formerly TWS, formerly OPC)</strong> — IBM's native scheduler. The fundamental units: <strong>application</strong> (a logical group of related jobs with their dependencies), <strong>operation</strong> (one step in an application — typically one JCL job), <strong>run cycle</strong> (when the application is supposed to run — daily, every Monday, the 1st of every month, "every working day"), <strong>calendar</strong> (defines working days vs holidays per business unit), and <strong>special days</strong> (per-application overrides like "skip month-end if Christmas falls on the 31st").</li>
+        <li><strong>Current plan</strong> — IWS rolls forward a daily plan listing every application and operation expected to run today, with their start windows and dependencies. The plan is the operational reality; operators monitor it through ISPF panels (TSO command WSCH or =WS) or the Dynamic Workload Console (browser).</li>
+        <li><strong>Dependency types</strong> — predecessor (operation A must finish before B starts), successor, time-driven (start no earlier than HH:MM), event-driven (start when a file arrives or an external trigger fires), and resource-driven (start only when a named exclusive resource is free, used for serializing access to shared datasets across the sysplex).</li>
+        <li><strong>CA-7 (Broadcom CA Workload Automation CA 7 Edition)</strong> — the long-standing CA-Technologies competitor to IWS. Different terminology (jobs in CA-7 are equivalent to operations in IWS) but same conceptual model: dependency-graph-driven scheduling overlaid on JES.</li>
+        <li><strong>BMC Control-M</strong> — multi-platform scheduler that can schedule both z/OS jobs and distributed (Linux/Windows) jobs from a single control plane. Common in heterogeneous shops where mainframe and distributed batch need orchestrating together.</li>
+        <li><strong>End-to-end flow</strong> — typical production pattern: scheduler reaches start-time and dependencies are satisfied → scheduler builds and submits the JCL (often by extracting it from a JOBLIB and applying scheduler-time symbol substitution) → JES2 runs the job → scheduler watches completion via SMF type 30 records and JES exits → scheduler updates the current plan, releases successors, and (on failure) triggers configured retry/alert logic.</li>
+      </ul>
+
       <h2>GDG Advanced Usage</h2>
-      <p>Generation expressions (+1, 0, -1), rolloff options (EMPTY vs NOEMPTY), and GDG in multi-step jobs.</p>
+      <p>The L1 DASD card covered GDG basics. Production usage adds patterns:</p>
+      <ul>
+        <li><strong>Within a single job</strong>, every <code>(+1)</code> resolves to the same new generation; <code>(0)</code> always refers to whatever was the latest at job start (so the first <code>(0)</code> read in a job sees yesterday's generation, even if you've already created today's <code>(+1)</code> in an earlier step). This locked-at-job-start behaviour is what allows batch chains to safely process "today's input" while concurrently writing "today's output."</li>
+        <li><strong>Cross-day dependencies</strong> — a typical pattern: job A produces <code>PAYROLL.DAILY.GDG(+1)</code> on day N; job B on day N+1 reads <code>PAYROLL.DAILY.GDG(0)</code> (the most-recent generation, which is yesterday's output). The scheduler ensures A completes before B starts; the GDG mechanism handles the naming.</li>
+        <li><strong>Rolloff with NOEMPTY vs EMPTY</strong> — NOEMPTY (the sane default) rolls off only the oldest generation when LIMIT is exceeded; EMPTY uncatalogs all generations. EMPTY is rare in practice and is a common foot-gun.</li>
+        <li><strong>SCRATCH vs NOSCRATCH</strong> — SCRATCH physically deletes the rolled-off generation from DASD; NOSCRATCH just uncatalogs it (data remains on disk as an orphan). NOSCRATCH is occasionally used when the rolled-off data feeds a separate archival process that picks up and migrates the orphans.</li>
+        <li><strong>GDG limits</strong> — the LIMIT can range from 1 to 255 generations in a classic GDG; extended-format GDGs (DFSMS) raise the limit to 999. Beyond LIMIT, the oldest is rolled off as new generations arrive.</li>
+        <li><strong>Restart-safe GDG patterns</strong> — when designing a multi-step job that creates a new generation, isolate the create in its own step at the top and DELETE-then-DEFINE the generation rather than relying on (+1). This way RESTART= from a downstream step can safely re-reference (0) which now refers to the in-progress generation, regardless of how many times the job has been retried.</li>
+      </ul>
+
+      <h2>Sources &amp; References</h2>
+      <div style="margin-top:20px; padding:20px; background-color:#e8f4f8; border-left:5px solid #0066cc; border-radius:4px; font-size:0.9em; line-height:1.8;">
+        <ul style="margin: 0; padding-left: 20px; list-style-type:none;">
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-mvs-jcl-reference" target="_blank" style="color:#0066cc; text-decoration:none;">MVS JCL Reference</a> (Publication SA23-1385) — RESTART, JCLLIB, EXPORT, SET, nested PROCs</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-mvs-jcl-users-guide" target="_blank" style="color:#0066cc; text-decoration:none;">MVS JCL User's Guide</a> — restart design patterns, GDG handling</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-dfsmsdfp-checkpointrestart" target="_blank" style="color:#0066cc; text-decoration:none;">DFSMSdfp Checkpoint/Restart</a> (Publication SC23-6849) — CHKPT macro, SYSCHK DD</li>
+          <li>• <a href="https://www.ibm.com/docs/en/workload-scheduler-zos/9.5" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Workload Scheduler for z/OS Documentation</a> — applications, operations, run cycles, current plan</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-dfsms-managing-catalogs" target="_blank" style="color:#0066cc; text-decoration:none;">DFSMS Managing Catalogs</a> (Publication SC23-6853) — GDG limit, EMPTY/NOEMPTY, SCRATCH/NOSCRATCH</li>
+          <li>• <a href="https://www.broadcom.com/products/mainframe/devops-app-dev/workload-automation-ca7-edition" target="_blank" style="color:#0066cc; text-decoration:none;">Broadcom CA Workload Automation CA 7 Edition</a></li>
+          <li>• <a href="https://documents.bmc.com/supportu/9.0.20/help/Control-M_Workload_Automation_Help.htm" target="_blank" style="color:#0066cc; text-decoration:none;">BMC Control-M Documentation</a></li>
+          <li>• <a href="https://www.redbooks.ibm.com/abstracts/sg246987.html" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Redbook SG24-6987</a> — ABCs of z/OS System Programming Vol. 8 (advanced JCL chapters)</li>
+        </ul>
+      </div>
     `,
     mcq: [
-      { question: "What JCL parameter enables restart from a specific step?", options: ["RESTART=", "RESUME=", "RERUN=", "CONTINUE="], answer: 0, explanation: "RESTART=stepname on the JOB statement resumes execution from the named step, skipping earlier steps." },
-      { question: "What is checkpoint/restart used for?", options: ["Re-running from start", "Resuming a long-running job from the last checkpoint after a failure", "Resetting JES queues", "Full IPL restart"], answer: 1, explanation: "Checkpoint/restart saves periodic snapshots so a failing long job can resume from the last checkpoint rather than starting over." },
-      { question: "How do you override a symbolic parameter in a catalogued PROC at execution time?", options: ["Modify the PROC member", "Pass the value on the EXEC PROC= statement", "Use a COND parameter", "Submit PROC as a separate job"], answer: 1, explanation: "Symbolics are overridden by adding assignments on the invoking EXEC: // EXEC MYPRC,SYM1=VAL1" },
-      { question: "What does GDG relative number (+1) do in JCL at allocation time?", options: ["References current generation", "Creates the next new generation in the GDG sequence", "Deletes the oldest generation", "Refers to generation zero"], answer: 1, explanation: "+1 allocates a new GDG generation, incrementing the generation sequence number upon successful job completion." },
-      { question: "What IBM mainframe scheduler product manages job dependency networks and current plans?", options: ["CA7 only", "IWS (IBM Workload Scheduler / TWS)", "AutoSys", "Control-M"], answer: 1, explanation: "IBM Workload Scheduler (IWS/TWS/OPC) is IBM's native mainframe scheduling product providing dependency, calendar, and current-plan management." }
+      { question: "What JCL parameter on the JOB statement enables restart from a specific step?", options: ["RESTART=", "RESUME=", "RERUN=", "CONTINUE="], answer: 0, explanation: "RESTART=stepname (or stepname.procstep for restart inside a PROC) tells JES to bypass earlier steps and resume execution at the named step." },
+      { question: "What is checkpoint/restart used for?", options: ["Re-running from start", "Resuming a long-running step from the most recent in-program checkpoint after a failure, instead of re-processing from the beginning of the input", "Resetting JES queues", "Full IPL restart"], answer: 1, explanation: "The program issues CHKPT macro calls at intervals; on failure, the SYSCHK DD plus RESTART=stepname,CHECKID=ckid resumes from the named checkpoint. DFSORT supports this via OPTION CKPT." },
+      { question: "How do you override a symbolic parameter in a catalogued PROC at execution time?", options: ["Modify the PROC member", "Pass the value on the EXEC PROC= statement: //STEP EXEC MYPROC,SYM1=VAL1", "Use a COND parameter", "Submit PROC as a separate job"], answer: 1, explanation: "Symbolics are overridden by adding name=value pairs on the invoking EXEC. Unsupplied symbolics keep their PROC default." },
+      { question: "What does GDG relative number (+1) do in JCL at allocation time?", options: ["References the current generation", "Creates the next new generation in the GDG sequence (catalogued at successful step end)", "Deletes the oldest generation", "Refers to generation zero"], answer: 1, explanation: "(+1) allocates a new generation. Within one job every (+1) resolves to the same new generation; (0) refers to the latest as it was at job start." },
+      { question: "Which IBM mainframe scheduler product manages job dependency networks and the daily current plan?", options: ["CA-7 only", "IWS (IBM Workload Scheduler / TWS / formerly OPC)", "AutoSys", "Cron"], answer: 1, explanation: "IWS is IBM's native z/OS workload scheduler. It maintains a current plan listing every operation expected today with its dependencies, calendar, and resource requirements." },
+      { question: "What does the JCLLIB statement do?", options: ["Lists all loaded JCL files", "Tells JES to search the named libraries (in order) for any PROCs referenced by this job, ahead of the standard PROCLIB stack", "Creates a JCL library", "Compresses JCL members"], answer: 1, explanation: "//procname JCLLIB ORDER=(USER.PROC.LIB,SYS1.PROCLIB) lets a developer test a modified PROC from their own library without installing into a system PROCLIB." },
+      { question: "When restarting a job at a step inside a PROC, what is the syntax?", options: ["RESTART=PROCNAME", "RESTART=stepname.procstep — dot-separated outer-then-inner step name", "RESTART=ALL", "RESTART=*"], answer: 1, explanation: "For nested step references the dotted form qualifies which inner PROC step to resume at. RESTART=STEP2.COPY restarts at the COPY substep within STEP2." },
+      { question: "What is the purpose of the EXPORT statement in JCL?", options: ["Send output to FTP", "Propagate named symbolic parameter values from the calling job into nested PROCs without the inner PROC having to declare them", "Export RACF profiles", "Copy datasets across systems"], answer: 1, explanation: "// EXPORT SYMLIST=(SYM1,SYM2) makes the named symbolics visible inside any PROC the job calls, sparing the inner PROC from declaring them on its header." },
+      { question: "What is the difference between GDG NOEMPTY and EMPTY rolloff options?", options: ["No difference", "NOEMPTY rolls off only the oldest generation when LIMIT is exceeded; EMPTY uncatalogs every generation when LIMIT is hit", "EMPTY is the default", "NOEMPTY deletes everything"], answer: 1, explanation: "NOEMPTY is the sane default — sliding-window behaviour. EMPTY purges all generations on overflow, which is rarely desired and is a common foot-gun." },
+      { question: "How does an enterprise scheduler typically know that a submitted JCL job has completed?", options: ["Polling the spool every second", "By reading SMF type 30 records and watching JES job-completion exits", "The job sends a network message back", "It re-submits the job to check"], answer: 1, explanation: "Schedulers hook into SMF (especially type 30 step/job termination records) and JES exits to track completion, capture the final RC, and trigger downstream operations or alerts." },
+      { question: "What is a 'current plan' in IBM Workload Scheduler?", options: ["A capacity-planning document", "The live operational day-plan listing every application and operation expected to run today, with their dependencies and start windows", "A WLM service definition", "A SMF dump dataset"], answer: 1, explanation: "The current plan is IWS's authoritative view of today's batch — operators monitor it via ISPF (=WS) or the Dynamic Workload Console; it advances as operations complete or fail." },
+      { question: "Why is it dangerous to rely on (+1) GDG numbering across a restart?", options: ["GDGs cannot be restarted", "If a job aborts after creating (+1) and is then resubmitted with RESTART=, the same (+1) reference may resolve to a different generation, breaking downstream consistency. Restart-safe designs delete-and-recreate the target generation in a dedicated cleanup step", "(+1) is deprecated", "GDGs ignore RESTART="], answer: 1, explanation: "Within one job (+1) is locked at job start, but on restart the GDG state may have advanced if the failed job partially catalogued. The standard pattern is a dedicated cleanup-then-create step at the top so restart starts from a clean state." }
     ],
     practical: [
-      { title: "Task 1  Write a Catalogued PROC with Symbolic Parameters", description: "Create a PROC with two symbolic parameters, then invoke it from a JCL job overriding both.", hints: ["Hint 1: declare symbolics on the PROC header: //MYPRC PROC P1=DEFAULT1,P2=DEFAULT2", "Hint 2: override with EXEC MYPRC,P1=NEWVAL1,P2=NEWVAL2"], solution: "Expected PROC and JCL. Replace with real content." },
-      { title: "Task 2  Restart a Failed Job at a Specific Step", description: "Cause a job to fail at step 2, then resubmit with RESTART=STEP2 and verify only step 2 onwards ran.", hints: ["Hint 1: add //JOBRESTART JOB ...,RESTART=STEP2 in the resubmission.", "Hint 2: check SDSF to confirm step 1 shows no execution record."], solution: "Expected JCL and SDSF observations. Replace with real content." }
+      {
+        title: "Task 1 — Restart a Failed Multi-Step Job at a Specific Step",
+        description: "Build a 3-step job where STEP2 is designed to fail, observe the failure in SDSF, then resubmit the same JCL with RESTART=STEP2 and watch JES bypass STEP1 and resume at STEP2. This exercise teaches both the RESTART= mechanism and how to spot bypassed steps in JESYSMSG (the IEF202I 'STEP WAS NOT EXECUTED' lines).",
+        hints: [
+          "Hint 1: Build the JCL with three steps: STEP1 = IEFBR14 (always succeeds), STEP2 = IDCAMS LISTCAT against a deliberately nonexistent dataset (returns RC=4 — but to make this 'fail' enough to stop the job, code COND=(0,LT) on STEP3 so STEP3 only runs when no prior step has RC>0), STEP3 = IEFBR14 again.",
+          "Hint 2: Submit the original JCL. STEP1 succeeds, STEP2 returns RC=4, STEP3 is bypassed by COND. The MAX-RC for the job is 4, but STEP3 didn't run — that's our 'failure.'",
+          "Hint 3: Now duplicate the JCL into a new member (e.g., RESTART2). Add RESTART=STEP2 on the JOB statement. Fix the cause of the STEP2 failure — change the LISTCAT to query an EXISTING dataset.",
+          "Hint 4: Submit the restart-version. Look at JESYSMSG: STEP1 should appear as 'NOT EXECUTED' (IEF202I), STEP2 should now succeed (RC=0), STEP3 should run.",
+          "Hint 5: Verify the bypass by checking the IEF373I 'START' lines in JESYSMSG — they should only appear for STEP2 and STEP3, not STEP1."
+        ],
+        solution: "<strong>Original JCL — Z12345.TEST.CNTL(MULTIJOB):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">//MULTIJOB JOB (ACCT),'RESTART DEMO',CLASS=A,MSGCLASS=H,\n//             NOTIFY=&amp;SYSUID,REGION=0M\n//STEP1    EXEC PGM=IEFBR14\n//STEP2    EXEC PGM=IDCAMS\n//SYSPRINT DD  SYSOUT=*\n//SYSIN    DD  *\n  LISTCAT ENTRIES(Z12345.NOSUCH.THING) ALL\n/*\n//STEP3    EXEC PGM=IEFBR14,COND=(0,LT)</pre>Submit, then in SDSF observe MAX-RC=4. JESYSMSG shows:<pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">IEF142I MULTIJOB STEP1 - STEP WAS EXECUTED - COND CODE 0000\nIEF142I MULTIJOB STEP2 - STEP WAS EXECUTED - COND CODE 0004\nIEF202I MULTIJOB STEP3 - STEP WAS NOT EXECUTED</pre>STEP3 was bypassed by COND because STEP2.RC=4 (and 0 LT 4 is true → skip).<br><br><strong>Restart JCL — Z12345.TEST.CNTL(RESTART2):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">//MULTIJOB JOB (ACCT),'RESTART AT STEP2',CLASS=A,MSGCLASS=H,\n//             NOTIFY=&amp;SYSUID,REGION=0M,RESTART=STEP2\n//STEP1    EXEC PGM=IEFBR14\n//STEP2    EXEC PGM=IDCAMS\n//SYSPRINT DD  SYSOUT=*\n//SYSIN    DD  *\n  LISTCAT ENTRIES(Z12345.TEST.CNTL) ALL    /* fixed: existing DSN */\n/*\n//STEP3    EXEC PGM=IEFBR14,COND=(0,LT)</pre>Submit. Expected JESYSMSG:<pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">IEF202I MULTIJOB STEP1 - STEP WAS NOT EXECUTED   /* RESTART= bypassed it */\nIEF142I MULTIJOB STEP2 - STEP WAS EXECUTED - COND CODE 0000\nIEF142I MULTIJOB STEP3 - STEP WAS EXECUTED - COND CODE 0000</pre>MAX-RC is now 0 because STEP2's failure is fixed and STEP3 ran (COND of 0 LT 0 is false → run).<br><br><strong>What this demonstrates:</strong> RESTART= surgically bypasses earlier steps; the JCL still has to be syntactically valid and complete (you can't delete the bypassed steps from the JCL — JES needs them to do allocation chaining). Combined with COND= (or modern IF/THEN/ELSE), this gives you fine control over re-running failed batch streams without re-processing already-completed work.<br><br><strong>Variations:</strong> (a) RESTART=stepname.procstep — restart at an inner step of a PROC (e.g., RESTART=STEP2.COPY); (b) RESTART=* — restart at the first step (rarely useful, equivalent to no RESTART); (c) what if the RESTART= names a step that doesn't exist in the JCL? JES rejects with IEF642I 'RESTART step not in job' and the job fails JCL conversion."
+      },
+      {
+        title: "Task 2 — Design Restart-Safe JCL with GDGs and Cleanup Steps",
+        description: "Write a job that creates a new GDG generation, then explore what happens on a partial-failure restart. Add a dedicated cleanup-and-create pre-step that makes the job restartable from any downstream step without GDG state corruption. This is the pattern every production batch uses to ensure clean retries.",
+        hints: [
+          "Hint 1: Use the GDG you defined in the L1 DASD card task — Z12345.PAYROLL.GDG. If you don't have it, recreate with IDCAMS DEFINE GDG (NAME(Z12345.PAYROLL.GDG) LIMIT(5) NOEMPTY SCRATCH).",
+          "Hint 2: Build a 3-step job: STEP0 (cleanup) deletes the in-progress generation if one exists; STEP1 creates a new generation with (+1); STEP2 simulates 'work' that might fail (use IEFBR14 with COND on the input).",
+          "Hint 3: For the cleanup step, IDCAMS DELETE can target the relative generation: DELETE 'Z12345.PAYROLL.GDG(0)' but only if it exists. Use SET MAXCC=0 after the DELETE so a not-found error doesn't stop the job (IDCAMS DELETE returns RC=8 if the dataset doesn't exist).",
+          "Hint 4: To test the restart pattern: submit the job once successfully (creates G0001V00); modify it to fail in STEP2; submit again with RESTART=STEP1; observe whether STEP1 successfully recreates the generation cleanly (because STEP0's cleanup ran first... wait, STEP0 was bypassed by RESTART=STEP1, so the in-progress generation is still there)."
+        ],
+        solution: "<strong>The naive non-restart-safe pattern (DON'T use):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">//STEP1    EXEC PGM=IEFBR14\n//OUT      DD  DSN=Z12345.PAYROLL.GDG(+1),DISP=(NEW,CATLG,DELETE),\n//             SPACE=(TRK,(1,1)),DCB=(RECFM=FB,LRECL=80,BLKSIZE=0)\n//STEP2    EXEC PGM=...some processor...\n//IN       DD  DSN=Z12345.PAYROLL.GDG(0),DISP=SHR\n//OUT      DD  DSN=Z12345.PAYROLL.OUTPUT,DISP=(NEW,CATLG,DELETE),...</pre>Problem: if STEP2 fails and you RESTART=STEP2, the (+1) from the original run already catalogued G0001V00; you can't re-run STEP1 cleanly because (+1) on the second submission would create G0002V00, which is wrong — you wanted to retry processing the same generation.<br><br><strong>The restart-safe pattern:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">//SAFEJOB  JOB (ACCT),'RESTART SAFE',CLASS=A,MSGCLASS=H,\n//             NOTIFY=&amp;SYSUID,REGION=0M\n//*\n//* STEP0: idempotent cleanup. Always safe to run. Returns 0\n//*        whether the dataset existed or not.\n//*\n//STEP0    EXEC PGM=IDCAMS\n//SYSPRINT DD  SYSOUT=*\n//SYSIN    DD  *\n  DELETE 'Z12345.PAYROLL.OUTPUT'\n  SET MAXCC = 0\n/*\n//*\n//* STEP1: create new GDG generation\n//*\n//STEP1    EXEC PGM=IEFBR14\n//OUT      DD  DSN=Z12345.PAYROLL.GDG(+1),DISP=(NEW,CATLG,DELETE),\n//             SPACE=(TRK,(1,1)),\n//             DCB=(RECFM=FB,LRECL=80,BLKSIZE=0)\n//*\n//* STEP2: process. If this fails, restart at STEP0 (not STEP1)\n//*        so the cleanup runs again before retry.\n//*\n//STEP2    EXEC PGM=IEBGENER\n//SYSPRINT DD  SYSOUT=*\n//SYSUT1   DD  DSN=Z12345.PAYROLL.GDG(0),DISP=SHR\n//SYSUT2   DD  DSN=Z12345.PAYROLL.OUTPUT,DISP=(NEW,CATLG,DELETE),\n//             SPACE=(TRK,(2,1)),\n//             DCB=(RECFM=FB,LRECL=80,BLKSIZE=0)\n//SYSIN    DD  DUMMY</pre><strong>Why this is restart-safe:</strong> if STEP2 fails, you resubmit with RESTART=STEP0 (not RESTART=STEP2). STEP0 deletes the partial OUTPUT (silently, even if it doesn't exist thanks to SET MAXCC=0). STEP1 creates a new GDG generation; this <em>replaces</em> the previous in-progress generation because the cleanup pattern actually targets the right one. STEP2 runs against the fresh generation.<br><br><strong>Two refinements seen in production:</strong><br>(1) DELETE the in-progress GDG generation explicitly in STEP0 before STEP1 creates a new one — change STEP0 to also delete <code>Z12345.PAYROLL.GDG(0)</code>. The SET MAXCC=0 trick handles the case where it doesn't exist.<br>(2) Use a temporary catalog name throughout the job, then RENAME at the end. STEP0 deletes the temp; STEP1 creates the temp; STEP2 processes the temp; STEP3 RENAMEs temp to the real GDG generation, only on STEP2 success. RESTART= can then safely target STEP0 every time without GDG state confusion.<br><br><strong>What this teaches:</strong> RESTART= is a powerful but blunt tool. The discipline is on the JCL author to design the job so any restart point is idempotent — running STEP0 twice has the same effect as running it once. SET MAXCC=0, dedicated cleanup steps, and temp-then-rename patterns are how production batch becomes truly restart-safe. This matters because automated schedulers (IWS, CA-7, Control-M) are configured to RESTART jobs on certain failure conditions without human intervention; if your JCL isn't restart-safe, the automated retry corrupts state instead of recovering it."
+      }
     ]
   },
 
@@ -2035,33 +2597,236 @@ END</pre>
     level: 2,
     category: "Automation & Scripting",
     title: "Advanced REXX & System Integration",
-    summary: "Advanced REXX (stem variables, EXECIO, error handling), REXXISPF service integration, SDSF ISF interface, issuing MVS console commands, and reading SMF data from REXX.",
+    summary: "Diagnosing and tracing REXX programs, the TSO/E external function library, deep data-stack control, EXECIO and stream I/O, ISPF/SDSF/console programmatic interfaces, and Compiled REXX.",
     content: `
-      <h2>Advanced REXX Techniques</h2>
-      <p>Replace with content on stem variables, compound variables, external functions, and REXX error handling (SIGNAL ON).</p>
-      <h2>REXX I/O with EXECIO</h2>
+      <h2>Diagnosing Problems</h2>
+      <p>The L1 REXX card covered the language; production REXX adds <strong>defensive programming</strong> on top — error trapping with SIGNAL, interactive tracing, NOVALUE detection, and the discipline of inspecting return codes after every host command. A production exec that ignores a failed TSO command can leave the system in a half-changed state, so the standard idiom is: issue command, immediately check RC, branch on failure.</p>
+
+      <p><strong>The TRACE instruction</strong> is REXX's interactive debugger. It controls how much execution detail is displayed as the exec runs. Trace settings are letters that progressively reveal more:</p>
       <ul>
-        <li><strong>EXECIO * DISKR</strong>  read all records from a dataset into a stem.</li>
-        <li><strong>EXECIO * DISKW</strong>  write a stem to a dataset.</li>
-        <li><strong>FINIS option</strong>  close the file after I/O.</li>
+        <li><code>TRACE A</code> — All clauses (every executed statement).</li>
+        <li><code>TRACE R</code> — Results: every clause that produces a result, plus the result itself.</li>
+        <li><code>TRACE I</code> — Intermediates: every operation, even sub-expressions. Verbose; for hardcore debugging.</li>
+        <li><code>TRACE C</code> — Commands only (host-environment commands and their RC).</li>
+        <li><code>TRACE E</code> — Errors only (any host command returning non-zero RC).</li>
+        <li><code>TRACE F</code> — Failures (commands that fail to execute at all).</li>
+        <li><code>TRACE N</code> — Normal/none (default; turn tracing off).</li>
+        <li><code>TRACE O</code> — Off (same as N).</li>
+        <li><strong>Interactive prefix</strong>: <code>TRACE ?I</code>, <code>TRACE ?R</code>, etc. The leading <code>?</code> makes tracing pause at every step waiting for user input. Press Enter to continue, type a REXX expression to evaluate it, type <code>TRACE OFF</code> to stop tracing. This is the closest equivalent to a step-debugger in REXX.</li>
       </ul>
-      <h2>REXXISPF Services</h2>
-      <p>ISPEXEC VGET/VPUT, TBOPEN/TBCLOSE, and SELECT CMD for advanced ISPF automation.</p>
-      <h2>SDSF ISF Interface</h2>
-      <p>Using ADDRESS ISFCONS and ISFEXEC to query job status programmatically from REXX.</p>
-      <h2>MVS Console Commands from REXX</h2>
-      <p>Issuing operator commands and capturing responses using OUTTRAP and ADDRESS CONSOLE.</p>
+      <p>You can also embed <code>TRACE</code> only around the suspect block: <code>TRACE I; risky_section; TRACE OFF</code>.</p>
+
+      <p><strong>SIGNAL ON conditions</strong> let an exec react to specific exceptional events. The general form: <code>SIGNAL ON condition NAME label</code> — when the condition arises, control jumps to the named label. Conditions:</p>
+      <ul>
+        <li><strong>ERROR</strong> — host command returned non-zero RC.</li>
+        <li><strong>FAILURE</strong> — host command failed to execute at all (e.g., command not found).</li>
+        <li><strong>HALT</strong> — the user pressed PA1 (attention).</li>
+        <li><strong>SYNTAX</strong> — REXX syntax or runtime error in the exec itself (e.g., division by zero, bad function call).</li>
+        <li><strong>NOVALUE</strong> — a variable was referenced before being assigned a value. Hugely useful for catching typos.</li>
+        <li><strong>NOTREADY</strong> — I/O error during stream operations.</li>
+      </ul>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX */
+signal on novalue name varerror
+signal on syntax  name syntaxerror
+
+x = undefined_variable    /* triggers NOVALUE */
+
+exit 0
+
+varerror:
+  say 'NOVALUE at line' sigl 'variable was used before assignment'
+exit 8
+
+syntaxerror:
+  say 'SYNTAX error at line' sigl ':' errortext(rc)
+exit 8</pre>
+      <p>Inside the handler the special variable <code>SIGL</code> tells you which source line caused the condition; <code>RC</code> holds the REXX error number; <code>ERRORTEXT(rc)</code> returns a short description; <code>CONDITION('D')</code> returns descriptive info about the condition.</p>
+
+      <h2>TSO/E External Functions</h2>
+      <p>Beyond the standard REXX built-ins, TSO/E ships a library of <strong>external functions</strong> that expose z/OS-specific information without needing to issue and parse a TSO command. They are called like normal functions and are much faster than OUTTRAP-and-parse patterns.</p>
+      <ul>
+        <li><strong>SYSDSN('dsname')</strong> — returns 'OK' if the named dataset is catalogued and accessible, or a diagnostic string ('DATASET NOT FOUND', 'PROTECTED DATASET', 'MEMBER NOT FOUND', 'UNAVAILABLE DATASET', etc.). The fastest way to test "does this dataset exist?".</li>
+        <li><strong>LISTDSI('dsname')</strong> — populates ~30 SYS-prefixed variables with the dataset's catalog and DCB info: SYSDSORG (PS/PO/PO-E/VS), SYSRECFM, SYSLRECL, SYSBLKSIZE, SYSPRIMARY, SYSSECONDS, SYSALLOC (tracks allocated), SYSUSED (tracks used), SYSCREATE, SYSREFDATE (last referenced), SYSMEMBERS (member count for PDS), SYSPASSWORD, SYSRACFA (RACF discrete profile), and many more. Returns RC=0 on success.</li>
+        <li><strong>SYSVAR('symbol')</strong> — system information: SYSUID (user), SYSPLEX (sysplex name), SYSNAME (system name in sysplex), SYSPROC (logon proc), SYSCPU (CPU time used), SYSWTERM (terminal type).</li>
+        <li><strong>MVSVAR('symbol')</strong> — additional system queries: SYSNAME, SYSPLEX, SYSCLONE, SYMDEF (resolved system symbol).</li>
+        <li><strong>OUTTRAP('stem.', n, 'CONCAT')</strong> — capture TSO command output. Optional max-line and CONCAT/NOCONCAT flags control buffering. <code>OUTTRAP('OFF')</code> deactivates.</li>
+        <li><strong>MSG('ON|OFF')</strong> — toggle whether subsequent TSO commands display their normal terminal messages. Useful for silencing noisy commands when you only care about the RC.</li>
+        <li><strong>STORAGE(addr, length, data)</strong> — read or write storage at a hex address. Privileged; rarely used by application programmers.</li>
+        <li><strong>GETMSG('stem.', 'BOTH')</strong> — retrieve messages issued by a previous host command, parsed into a stem. Modern alternative to OUTTRAP for some scenarios.</li>
+        <li><strong>SYSDSORG / SYSDSPSO</strong> (set as side-effect of LISTDSI) — see above.</li>
+        <li><strong>TIME('E')</strong> / <strong>TIME('R')</strong> — elapsed time since exec started, or since last reset. Used for self-timing.</li>
+      </ul>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX */
+if sysdsn(\"'Z12345.MAYBE.EXISTS'\") = 'OK' then
+  say 'dataset exists'
+else
+  say 'dataset is not accessible'
+
+rc = listdsi(\"'Z12345.TEST.SEQ'\")
+if rc = 0 then say 'org=' sysdsorg 'recfm=' sysrecfm 'lrecl=' syslrecl,
+                  'used=' sysused 'tracks of' sysalloc,
+                  'last referenced' sysrefdate</pre>
+
+      <h2>The Data Stack</h2>
+      <p>The <strong>data stack</strong> is a system-wide LIFO/FIFO scratch area maintained by TSO/E. REXX execs can <code>QUEUE</code> items (added to bottom — FIFO) or <code>PUSH</code> items (added to top — LIFO), and <code>PULL</code> reads from the top. The stack is the standard channel for passing data between an exec and the TSO commands it calls (some TSO commands read input from the stack; many programs leave output there).</p>
+      <ul>
+        <li><strong>QUEUED()</strong> returns the current count of items on the stack.</li>
+        <li><strong>PUSH 'item'</strong> — add to top (LIFO; next PULL gets this).</li>
+        <li><strong>QUEUE 'item'</strong> — add to bottom (FIFO; next PULL gets the oldest queued item).</li>
+        <li><strong>PULL var</strong> — remove top item, upper-case it, assign to var. If stack is empty, PULL prompts the user interactively.</li>
+        <li><strong>PARSE PULL var</strong> — same as PULL but case-preserving.</li>
+      </ul>
+
+      <p><strong>Stack scoping with NEWSTACK / DELSTACK:</strong> by default, every exec shares one global stack. If a subroutine PUSHes things and forgets to clean up, the caller's stack is corrupted. The fix is <strong>stack isolation</strong>:</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX */
+queue 'caller-item-1'
+queue 'caller-item-2'
+say 'before sub: queued=' queued()    /* 2 */
+
+call mysub
+say 'after sub: queued=' queued()     /* still 2, sub was isolated */
+
+pull x                                 /* gets 'caller-item-1' */
+exit
+
+mysub:
+  'NEWSTACK'                           /* push a new empty stack onto the stack-of-stacks */
+  push 'sub-internal-data'
+  /* ... do work ... */
+  'DELSTACK'                           /* pop and discard the entire local stack */
+return</pre>
+      <p><code>NEWSTACK</code> creates a fresh empty stack for the subroutine; PUSH/QUEUE/PULL operate only on this new top stack. <code>DELSTACK</code> discards the top stack and exposes the caller's stack again. <code>QSTACK()</code> returns the count of stacks currently nested.</p>
+      <p><strong>QBUF</strong>, <strong>QELEM</strong>, <strong>DROPBUF</strong>, <strong>MAKEBUF</strong> are older buffer-mark mechanisms within a single stack that achieve similar effects with less isolation. Modern code prefers NEWSTACK/DELSTACK.</p>
+
+      <h2>I/O — EXECIO Deep Dive and Stream Functions</h2>
+      <p><strong>EXECIO</strong> is the workhorse for dataset I/O from REXX. Beyond the basic read-all and write-all patterns from L1, three more advanced uses:</p>
+      <ul>
+        <li><strong>Read N records</strong> — <code>'EXECIO 100 DISKR INDD (STEM rec.)'</code> reads at most 100 records and leaves the file open at that position. A subsequent EXECIO continues from where the last one stopped. Used for streaming through a large dataset without loading everything into memory.</li>
+        <li><strong>Update mode (DISKRU)</strong> — <code>'EXECIO 1 DISKRU INDD (STEM rec.)'</code> reads one record from a dataset opened for update, holding it for rewrite. The matching <code>'EXECIO 1 DISKW INDD (STEM rec.)'</code> writes the modified record back at the same position. Used for in-place updates without copy-and-swap.</li>
+        <li><strong>Append mode</strong> — allocate the output DD with DISP=MOD instead of OLD; EXECIO DISKW then appends new records to the end instead of replacing the file.</li>
+        <li><strong>FINIS option</strong> — closes the file after the I/O. Without FINIS, the file stays open across multiple EXECIO calls (faster, required for the read-N pattern). Always FINIS at the end.</li>
+        <li><strong>SKIP option</strong> — <code>'EXECIO N DISKR INDD (SKIP)'</code> skips records without reading their content. Useful for fast-forwarding to a known position in a large dataset.</li>
+      </ul>
+
+      <p><strong>Stream functions</strong> (TSO/E REXX since z/OS V1R10) provide a Unix-like file API for USS files (and, with limits, for MVS datasets). Functions: <code>STREAM(name,'C','OPEN READ')</code>, <code>LINEIN(name)</code>, <code>LINEOUT(name, line)</code>, <code>CHARIN(name, n)</code>, <code>CHAROUT(name, str)</code>, <code>LINES(name)</code>, <code>CHARS(name)</code>, <code>STREAM(name,'C','CLOSE')</code>. They return values directly (no DD-name dance), which makes them more comfortable for line-at-a-time USS file work and for ports of REXX code from other platforms.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX -- read a USS file with stream functions */
+file = '/u/Z12345/notes.txt'
+do while lines(file) &gt; 0
+  say linein(file)
+end
+call stream file, 'C', 'CLOSE'</pre>
+
+      <h2>ISPF Services from REXX</h2>
+      <p>Under ISPF, REXX execs can call any ISPF dialog service through <code>ADDRESS ISPEXEC</code>. The most common service families:</p>
+      <ul>
+        <li><strong>Variable services</strong> — <code>VGET (var1 var2) PROFILE</code> retrieves variables from the user's ISPF profile pool; <code>VPUT</code> stores them. <code>SHARED</code> pool is for inter-exec sharing within a session; <code>PROFILE</code> pool persists across logoffs (in the user's ISPF profile dataset).</li>
+        <li><strong>Panel display</strong> — <code>DISPLAY PANEL(panelname)</code> shows a previously written ISPF panel (a member in a SKELS or PANELS library). Variables referenced in the panel pick up values from the REXX environment automatically.</li>
+        <li><strong>Table services</strong> — <code>TBCREATE / TBOPEN / TBCLOSE / TBADD / TBGET / TBMOD / TBDELETE / TBSORT / TBDISPL</strong>. Tables are persistent ordered collections of rows (each row is a set of named columns). TBDISPL shows a table to the user with row-selection — the basis of every ISPF list panel ever written.</li>
+        <li><strong>File tailoring</strong> — <code>FTOPEN / FTINCL / FTCLOSE</code> instantiate a JCL skeleton (a member with placeholders) into a finished JCL deck for submission. Used by ISPF dialogs that build JCL on the fly.</li>
+        <li><strong>SELECT CMD</strong> — <code>'SELECT CMD(commandstring) NEWAPPL(appid)'</code> invokes another command or program as a separate ISPF function pool, isolating its variables from the caller.</li>
+      </ul>
+
+      <h2>SDSF Programmatic Interface</h2>
+      <p>SDSF provides a REXX interface (<code>ADDRESS SDSF</code> or <code>ISFEXEC</code>) for querying job/output panels programmatically. The pattern: set filters in special variables (ISFPREFIX, ISFOWNER), issue an action (e.g., <code>ISFEXEC ST</code>), then loop over the resulting stem variables (JOBNAME., JOBID., JOBIRETC., etc.) one row per matching job.</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX */
+rc = isfcalls('ON')
+isfprefix = 'Z12345*'
+isfowner  = 'Z12345'
+'ISFEXEC ST'
+do i = 1 to JOBNAME.0
+  say JOBNAME.i JOBID.i 'RC=' JOBIRETC.i
+end
+rc = isfcalls('OFF')</pre>
+      <p>The same mechanism allows programmatic line commands: set <code>ISFLINE</code> to the action character ('P' to purge, 'C' to cancel) and re-issue ISFEXEC. This is how scheduled clean-up scripts purge old held output every night.</p>
+
+      <h2>MVS Console Commands</h2>
+      <p><code>ADDRESS CONSOLE</code> issues MVS console commands (D A,L; D OMVS,O; F CICSAOR,...) and captures their responses. Required setup: the exec must first issue <code>'CONSPROF SOLDISPLAY(NO)'</code> to acquire a console profile (RACF authority via OPERCMDS class governs which commands are permitted).</p>
+      <pre style="background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;">/* REXX */
+'CONSPROF SOLDISPLAY(NO)'
+address console
+'D A,L'
+do queued()
+  pull line
+  say line
+end</pre>
+      <p>Responses arrive on the data stack. Useful for execs that need to react to system state — e.g., "if any address space is consuming &gt;90% CPU, send the operator an alert."</p>
+
+      <h2>Compiled REXX</h2>
+      <p>REXX execs are normally interpreted at runtime — the source file is parsed and executed line by line. For frequently-run or performance-critical execs, IBM ships the <strong>IBM Compiler for REXX/370</strong> (a separately licensed product) that translates REXX source into a Compiled-REXX object module, which is then bound into a load module. Compiled REXX runs 5–20× faster than interpreted, supports the full language, and the compiled exec is invoked exactly like an interpreted one. Considerations: compilation requires the REXX Compiler licence; deployment adds a build step; debugging is harder once the source is no longer the running artefact. Compiled REXX is most useful for production utilities that run in tight inner loops.</p>
+
+      <h2>Sources &amp; References</h2>
+      <div style="margin-top:20px; padding:20px; background-color:#e8f4f8; border-left:5px solid #0066cc; border-radius:4px; font-size:0.9em; line-height:1.8;">
+        <ul style="margin: 0; padding-left: 20px; list-style-type:none;">
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-tso-e-rexx-reference" target="_blank" style="color:#0066cc; text-decoration:none;">TSO/E REXX Reference</a> (Publication SA32-0972) — TRACE, SIGNAL, external functions, EXECIO, stream functions</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-tso-e-rexx-users-guide" target="_blank" style="color:#0066cc; text-decoration:none;">TSO/E REXX User's Guide</a> (Publication SA32-0982) — debugging patterns, OUTTRAP, data-stack idioms</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-ispf-services-guide" target="_blank" style="color:#0066cc; text-decoration:none;">ISPF Services Guide</a> (Publication SC19-3626) — VGET/VPUT, table services, panel display</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-sdsf-users-guide" target="_blank" style="color:#0066cc; text-decoration:none;">SDSF Operation and Customization</a> — REXX/SDSF programmatic interface (ISFCALLS, ISFEXEC)</li>
+          <li>• <a href="https://www.ibm.com/docs/en/zos/2.5.0?topic=zos-mvs-system-commands" target="_blank" style="color:#0066cc; text-decoration:none;">MVS System Commands</a> — list of all MVS console commands invokable via ADDRESS CONSOLE</li>
+          <li>• <a href="https://www.ibm.com/products/ibm-compiler-and-library-rexx" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Compiler and Library for REXX</a> — Compiled REXX product page</li>
+          <li>• <a href="https://chamilo.hogent.be/" target="_blank" style="color:#0066cc; text-decoration:none;">HOGENT Mainframe Curriculum</a> — Chamilo course materials (09-diagnosing-problems, 10-tso-external-functions, 11-data-stack, 12-input-output)</li>
+          <li>• <a href="https://www.redbooks.ibm.com/abstracts/sg247035.html" target="_blank" style="color:#0066cc; text-decoration:none;">IBM Redbook SG24-7035</a> — z/OS Basic Skills (advanced REXX patterns)</li>
+        </ul>
+      </div>
     `,
     mcq: [
-      { question: "What is a REXX stem variable?", options: ["A fixed constant", "An associative array indexed by a tail (e.g. list.1, list.2, list.0=count)", "A read-only system variable", "A PROC-level declaration"], answer: 1, explanation: "Stem variables form REXX's array mechanism. list.0 holds the element count by convention." },
-      { question: "What does OUTTRAP do in REXX?", options: ["Traps runtime errors", "Redirects TSO command output into a stem variable array for programmatic processing", "Opens a file for writing", "Intercepts ISPF variable changes"], answer: 1, explanation: "OUTTRAP(stem) captures lines that would otherwise appear on screen, storing them in stem.1, stem.2 ... stem.0." },
-      { question: "Which SDSF REXX command executes a SDSF query and returns results?", options: ["ISFBROWSE", "ISFEXEC", "ISFACT", "ISFLIST"], answer: 1, explanation: "ISFEXEC runs a SDSF query (e.g. ST, DA) and populates REXX variables with the returned data." },
-      { question: "What REXX instruction reads all records from a sequential dataset into a stem?", options: ["EXECIO * DISKR 'dsn' (FINIS STEM data.)", "READFILE dsn INTO stem.", "GET FILE(dsn) STEM(data.)", "RECEIVE dsn STEM(data.)"], answer: 0, explanation: "EXECIO * DISKR 'dsn' (FINIS STEM data.) reads every record into data.1 ... data.n and sets data.0 to the count." },
-      { question: "What must you do before issuing MVS console commands from REXX via ADDRESS CONSOLE?", options: ["Define a RACF OPERCMDS profile", "Issue CONSPROF to acquire a console token and activate the environment", "Run as UID 0 in USS", "Have ALTER to SYS1.PARMLIB"], answer: 1, explanation: "Before using ADDRESS CONSOLE, REXX must activate a console environment with the CONSPROF command and appropriate RACF authority." }
+      { question: "What is a REXX stem variable?", options: ["A fixed constant", "An associative array indexed by a tail (e.g. list.1, list.2, list.0=count)", "A read-only system variable", "A PROC-level declaration"], answer: 1, explanation: "Stem variables are REXX's array mechanism. By convention list.0 holds the element count and many built-ins (OUTTRAP, EXECIO, ISFEXEC) populate stems." },
+      { question: "What does OUTTRAP do in REXX?", options: ["Traps runtime errors", "Redirects TSO command output into a stem variable array for programmatic processing", "Opens a file for writing", "Intercepts ISPF variable changes"], answer: 1, explanation: "OUTTRAP('lines.') captures everything subsequent TSO commands would normally print, populating lines.1, lines.2, ..., with lines.0 as the count." },
+      { question: "Which SDSF REXX command executes an SDSF query and populates result variables?", options: ["ISFBROWSE", "ISFEXEC", "ISFACT", "ISFLIST"], answer: 1, explanation: "ISFEXEC runs an SDSF query (ST, DA, H, etc.) and fills JOBNAME., JOBID., JOBIRETC., etc. — one stem entry per matching row." },
+      { question: "What REXX instruction reads all records from a sequential dataset into a stem?", options: ["EXECIO * DISKR ddname (FINIS STEM data.)", "READFILE dsn INTO stem.", "GET FILE(dsn) STEM(data.)", "RECEIVE dsn STEM(data.)"], answer: 0, explanation: "EXECIO * DISKR ddname (FINIS STEM data.) reads every record into data.1 ... data.n. The * means 'all remaining records'; FINIS closes the file." },
+      { question: "What must you do before issuing MVS console commands from REXX via ADDRESS CONSOLE?", options: ["Define a RACF OPERCMDS profile (yourself)", "Issue CONSPROF to acquire a console environment, and have RACF OPERCMDS authority for the commands you intend to run", "Run as UID 0 in USS", "Have ALTER to SYS1.PARMLIB"], answer: 1, explanation: "CONSPROF SOLDISPLAY(NO) sets up the console session. Underlying RACF OPERCMDS class profiles control which commands you're allowed to issue." },
+      { question: "What does TRACE ?I do?", options: ["Disables tracing", "Activates interactive intermediate tracing — every operation pauses for user input, allowing inspection or stepping", "Traps syntax errors", "Increments a trace counter"], answer: 1, explanation: "The leading ? makes any TRACE setting interactive: REXX pauses at each step waiting for Enter (continue), an expression to evaluate, or TRACE OFF to stop. The closest thing REXX has to a step debugger." },
+      { question: "What does SIGNAL ON NOVALUE accomplish?", options: ["Prevents division by zero", "Triggers a jump to a named label whenever the exec references a variable that has never been assigned a value — invaluable for catching typos", "Disables stack operations", "Stops the exec on first error"], answer: 1, explanation: "SIGNAL ON NOVALUE NAME varerror routes any 'undefined variable' incident to the varerror label, where SIGL tells you which line caused it. One of the most useful defensive patterns in REXX." },
+      { question: "What does the SYSDSN function return?", options: ["The dataset's organisation", "'OK' if the dataset is catalogued and accessible, or a diagnostic string ('DATASET NOT FOUND', 'PROTECTED DATASET', etc.)", "A list of every member in a PDS", "The dataset's RACF profile"], answer: 1, explanation: "SYSDSN is the fastest 'does this dataset exist and can I access it?' check — returns 'OK' on success or a short reason string. Used as a precondition before opening." },
+      { question: "What does NEWSTACK / DELSTACK do?", options: ["Creates and destroys ISPF tables", "Pushes a fresh empty data stack on top of the stack-of-stacks (NEWSTACK) and pops it (DELSTACK), giving subroutines isolated stack scopes so they cannot corrupt the caller's stack", "Allocates new memory", "Backs up data to disk"], answer: 1, explanation: "NEWSTACK and DELSTACK give a subroutine a private LIFO/FIFO scratch space. The standard idiom for stack-using subroutines that must not disturb caller state." },
+      { question: "What is EXECIO DISKRU mode used for?", options: ["Reading a backup", "Reading records from a dataset opened for update — the records are held in place so a matching DISKW writes the modified record back at the same position", "Reading hexadecimal data", "Reading multiple files in parallel"], answer: 1, explanation: "DISKRU is the read-update pattern: EXECIO 1 DISKRU reads one record holding its position; modify the stem; EXECIO 1 DISKW writes it back. Used for in-place updates without copy-and-swap." },
+      { question: "What is the modern REXX stream function for reading the next line from a USS file?", options: ["GETLINE", "LINEIN(file)", "READLINE", "STREAM('C','READ')"], answer: 1, explanation: "LINEIN(file) returns the next line from a file opened by name. LINES(file) tells you how many lines are available; LINEOUT writes a line. Stream functions provide a Unix-like API alongside EXECIO." },
+      { question: "What is the IBM Compiler for REXX/370 used for?", options: ["Translating COBOL to REXX", "Translating REXX source into a load-module Compiled REXX object that runs 5-20x faster than interpreted REXX while supporting the full language", "Compressing REXX execs", "Adding security to REXX"], answer: 1, explanation: "Compiled REXX is for performance-critical or frequently-run execs. The compiled exec is invoked the same way as an interpreted one; the speed improvement comes from removing the per-line parsing overhead." }
     ],
     practical: [
-      { title: "Task 1  REXX Job Monitor Using SDSF ISF Interface", description: "Write a REXX exec that queries SDSF ST for all jobs matching your user ID and prints any with a non-zero return code.", hints: ["Hint 1: ADDRESS ISFCONS then ISFEXEC ST", "Hint 2: loop over ISFRESP. stem checking JOBIRETC field."], solution: "Expected REXX code and output. Replace with real content." },
-      { title: "Task 2  Read and Parse an SMF Extract File with REXX", description: "Using EXECIO and SUBSTR(), read a flat SMF extract file and display the SMF record type and creation date for each line.", hints: ["Hint 1: EXECIO * DISKR 'your.smf.extract' (FINIS STEM rec.)", "Hint 2: SMF record type is typically at a fixed offset  use SUBSTR(rec.i, offset, length)."], solution: "Expected REXX exec and sample output. Replace with real content." }
+      {
+        title: "Task 1 — Debug a Buggy Exec with TRACE and SIGNAL",
+        description: "Take a small REXX exec that contains two intentional bugs (a typo in a variable name and a divide-by-zero) and use TRACE plus SIGNAL ON to find them. This exercise builds the diagnostic muscle memory every REXX programmer needs — instead of staring at the code wondering why output is wrong, you let REXX show you what it is actually doing.",
+        hints: [
+          "Hint 1: The starting buggy exec is below. Save it as Z12345.EXEC(BUGGY) and run it — observe the unhelpful failure.",
+          "Hint 2: Add 'SIGNAL ON NOVALUE NAME varerror' and 'SIGNAL ON SYNTAX NAME syntaxerror' near the top, plus the matching labels at the bottom that print SIGL and ERRORTEXT(rc). Re-run — you'll get a precise line number for whatever blew up first.",
+          "Hint 3: Once you've fixed the typo, you'll hit a different bug — divide by zero. The SYNTAX handler will catch it. Add a defensive 'IF divisor = 0 THEN ...' check.",
+          "Hint 4: To watch the exec run step-by-step: add 'TRACE ?I' near the top. Press Enter at each pause to step; type a variable name to inspect; type TRACE OFF to stop tracing."
+        ],
+        solution: "<strong>Buggy starting exec — Z12345.EXEC(BUGGY):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nnumerator   = 100\ndenominator = 0\nresult = numeratro / denominator   /* typo: numeratro */\nsay 'result is' result</pre>Without instrumentation, the failure is opaque — REXX gives a generic error and possibly a useless line number.<br><br><strong>Instrumented version — Z12345.EXEC(DEBUG):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nsignal on novalue name varerror\nsignal on syntax  name syntaxerror\n\nnumerator   = 100\ndenominator = 0\nif denominator = 0 then do\n  say 'safety check: denominator is zero, refusing to divide'\n  exit 8\nend\nresult = numerator / denominator\nsay 'result is' result\nexit 0\n\nvarerror:\n  say 'NOVALUE at line' sigl 'condition:' condition('D')\nexit 8\n\nsyntaxerror:\n  say 'SYNTAX at line' sigl 'rc=' rc 'msg=' errortext(rc)\nexit 8</pre><strong>Fixing the typo:</strong> change <code>numeratro</code> to <code>numerator</code> in the original. Without SIGNAL ON NOVALUE the typo is silently treated as a new uninitialised variable that contains its own name as a string — leading to bizarre downstream errors. With SIGNAL ON NOVALUE, the moment you reference <code>numeratro</code> the handler fires, telling you exactly which line and which variable.<br><br><strong>Sample output of the trapped run:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">NOVALUE at line 5 condition: NOVALUE NUMERATRO  /* immediately tells you the name */</pre><strong>Walk-through with TRACE ?I:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">/* add 'trace ?I' as the second line */\n     5 *-* result = numerator / denominator\n       &gt;V&gt;   numerator =&gt; \"100\"\n       &gt;V&gt;   denominator =&gt; \"0\"\n       &gt;O&gt;   numerator / denominator\n+++ Interactive trace.  &quot;Trace Off&quot; to end debug, ENTER to continue. +++</pre>Press Enter at each prompt to step; type a variable name to inspect its value; type TRACE OFF when you've seen enough. <strong>Lesson:</strong> always add SIGNAL ON NOVALUE during development. Many REXX programmers add SIGNAL ON SYNTAX as well — the small handler at the bottom turns cryptic syntax errors into one-line 'line N: division by zero' messages that pinpoint the bug instantly."
+      },
+      {
+        title: "Task 2 — Build a Dataset Inventory using LISTDSI and OUTTRAP",
+        description: "Write an exec that takes a HLQ on the command line, lists every dataset under it via LISTC, then for each one calls LISTDSI to extract organisation/RECFM/LRECL/used-tracks/last-referenced. Output as a tidy report sorted by used-tracks descending. This combines two of the most-used external functions in real-world REXX.",
+        hints: [
+          "Hint 1: Use OUTTRAP to capture LISTC LEVEL(hlq) output. Each dataset entry begins with a TYPE line ('NONVSAM ------- name'). Parse each line for the dataset name.",
+          "Hint 2: For each name, call LISTDSI(\"'\" || dsn || \"'\"). The return code is 0 on success; non-zero usually means migrated dataset (HSM) or no read access.",
+          "Hint 3: After LISTDSI succeeds, the SYS-prefixed variables (SYSDSORG, SYSRECFM, SYSLRECL, SYSUSED, SYSALLOC, SYSREFDATE) are populated. Save these into stem rows.",
+          "Hint 4: Sort by used tracks: a simple bubble sort over the stem is fine for a couple hundred datasets. Or use SYSCALLS('ON') and the SORT external function if available."
+        ],
+        solution: "<strong>Z12345.EXEC(DSREPORT):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\nparse arg hlq\nif hlq = '' then hlq = sysvar('SYSUID')\n\nx = outtrap('lc.')\n'LISTC LEVEL('hlq')'\nx = outtrap('OFF')\n\n/* collect datasets into stem */\nn = 0\ndo i = 1 to lc.0\n  parse var lc.i type '-------' dsn\n  dsn = strip(dsn)\n  if dsn = '' then iterate\n\n  rc = listdsi(\"'\" || dsn || \"'\")\n  if rc ¬= 0 then iterate           /* migrated or inaccessible */\n\n  n = n + 1\n  ds.n.name    = dsn\n  ds.n.org     = sysdsorg\n  ds.n.recfm   = sysrecfm\n  ds.n.lrecl   = syslrecl\n  ds.n.used    = sysused + 0        /* force numeric */\n  ds.n.refdate = sysrefdate\nend\nds.0 = n\n\n/* simple bubble sort on used desc */\ndo i = 1 to ds.0 - 1\n  do j = 1 to ds.0 - i\n    j2 = j + 1\n    if ds.j.used &lt; ds.j2.used then do\n      do k = 1 to length('name org recfm lrecl used refdate')\n      end\n      tmp = ds.j.name;    ds.j.name    = ds.j2.name;    ds.j2.name    = tmp\n      tmp = ds.j.org;     ds.j.org     = ds.j2.org;     ds.j2.org     = tmp\n      tmp = ds.j.recfm;   ds.j.recfm   = ds.j2.recfm;   ds.j2.recfm   = tmp\n      tmp = ds.j.lrecl;   ds.j.lrecl   = ds.j2.lrecl;   ds.j2.lrecl   = tmp\n      tmp = ds.j.used;    ds.j.used    = ds.j2.used;    ds.j2.used    = tmp\n      tmp = ds.j.refdate; ds.j.refdate = ds.j2.refdate; ds.j2.refdate = tmp\n    end\n  end\nend\n\nsay left('DSNAME',44) left('ORG',5) left('RECFM',6) right('LRECL',5),\n    right('USED',6) ' LASTREF'\nsay copies('-',76)\ndo i = 1 to ds.0\n  say left(ds.i.name,44) left(ds.i.org,5) left(ds.i.recfm,6),\n      right(ds.i.lrecl,5) right(ds.i.used,6) ' ' ds.i.refdate\nend\nexit 0</pre><strong>Sample output:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">DSNAME                                       ORG   RECFM  LRECL   USED  LASTREF\n----------------------------------------------------------------------------\nZ12345.EXEC                                  PO    FB        80     45  2026/05/03\nZ12345.JCL.CNTL                              PO    FB        80     12  2026/05/02\nZ12345.PAYROLL.GDG.G0002V00                  PS    FB        80      2  2026/05/01\nZ12345.PAYROLL.GDG.G0001V00                  PS    FB        80      2  2026/04/30\nZ12345.TEST.SEQ                              PS    FB        80      1  2026/05/03</pre><strong>Notes:</strong> the report sorts by current dataset size — you immediately see which datasets are taking the most room. The LASTREF column tells you which haven't been touched recently (good HSM migration candidates). Adding a column for SYSCREATE shows when each was created."
+      },
+      {
+        title: "Task 3 — Stack-Isolated Subroutine with NEWSTACK / DELSTACK",
+        description: "Write a subroutine that needs to internally use the data stack (perhaps to cooperate with a TSO command) but must leave the caller's stack untouched. Demonstrate by setting up caller stack content, calling the subroutine, and verifying the caller's stack is byte-identical afterwards. This pattern is essential for any subroutine that issues TSO commands which leave responses on the stack.",
+        hints: [
+          "Hint 1: Push some test items onto the stack from the caller before the call. Verify QUEUED() shows the expected count.",
+          "Hint 2: Inside the subroutine, issue 'NEWSTACK' before any PUSH/QUEUE/PULL operation. Do all your stack work; then 'DELSTACK' as the very last thing before RETURN.",
+          "Hint 3: The pattern that makes this useful in practice: many TSO commands (LISTC, LISTBC, certain ISPF macros) deposit responses on the stack via PUTSEQ-like exits. Without NEWSTACK, those responses contaminate the caller's stack.",
+          "Hint 4: To prove isolation, after the subroutine returns, PULL items from the stack one at a time and confirm they are exactly what the caller pushed in the original order."
+        ],
+        solution: "<strong>Z12345.EXEC(STACKTST):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\n/* set up caller's stack with three items */\nqueue 'caller-A'\nqueue 'caller-B'\nqueue 'caller-C'\nsay 'Before subroutine: stack has' queued() 'items'\n\n/* call a subroutine that internally uses the stack */\ncall stack_using_sub\n\n/* prove caller's stack is intact */\nsay 'After subroutine:  stack has' queued() 'items'\nsay 'Pulling items in order:'\ndo while queued() &gt; 0\n  pull item\n  say '  ' item\nend\nexit 0\n\nstack_using_sub:\n  /* protect caller -- create a private stack */\n  'NEWSTACK'\n\n  /* now do whatever stack-heavy work is needed */\n  push 'sub-temp-1'\n  queue 'sub-temp-2'\n  queue 'sub-temp-3'\n\n  /* simulate processing -- e.g., pull items and use them */\n  do queued()\n    pull working\n    /* ... do something with working ... */\n  end\n\n  /* drop our private stack -- caller's stack reappears unchanged */\n  'DELSTACK'\nreturn</pre><strong>Sample output:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">Before subroutine: stack has 3 items\nAfter subroutine:  stack has 3 items\nPulling items in order:\n   CALLER-A\n   CALLER-B\n   CALLER-C</pre>The caller's stack is byte-identical before and after the call. (Note: PULL upper-cases by default; PARSE PULL preserves case.)<br><br><strong>What goes wrong without NEWSTACK:</strong> remove the NEWSTACK and DELSTACK lines and re-run. The subroutine's PUSH/QUEUE go straight onto the caller's stack. The subroutine's loop pulls items but might pull caller-A by mistake. The 'Pulling items' loop afterwards finds whatever the subroutine left behind. Result: complete chaos. NEWSTACK/DELSTACK is not optional — it's the only way to write reusable stack-using subroutines safely.<br><br><strong>Common production use:</strong> a subroutine that issues 'LISTC LEVEL(...)' and parses the output gets its responses on the stack (when not using OUTTRAP). NEWSTACK lets it do that without disturbing the caller. The caller can then call multiple such subroutines back-to-back without worrying about cross-contamination."
+      },
+      {
+        title: "Task 4 — In-Place Record Update with EXECIO DISKRU",
+        description: "Update specific records inside a sequential dataset without copying the whole thing. Read records one at a time in update mode (DISKRU), modify the ones that match a condition, write them back at the same position with DISKW. This is the standard pattern for surgical edits on large datasets where a full read-modify-write of the entire file would be wasteful.",
+        hints: [
+          "Hint 1: Allocate the dataset with DISP=OLD (or SHR if reading-only fields). EXECIO DISKRU requires write access at allocation time.",
+          "Hint 2: The sequence per record: 'EXECIO 1 DISKRU INDD (STEM rec.)' reads one record holding it for update. Inspect rec.1; if you decide to modify, set rec.1 to the new content and immediately issue 'EXECIO 1 DISKW INDD (STEM rec.)' to write it back at the same position. If you don't want to modify, just skip the DISKW — the read-position has advanced regardless.",
+          "Hint 3: When you've processed the records of interest (or hit EOF), close with 'EXECIO 0 DISKW INDD (FINIS)'. The 0 count plus FINIS releases the file without writing anything new.",
+          "Hint 4: Demo idea: read a small dataset that has 'STATUS:NEW' or 'STATUS:DONE' records; flip every NEW to DONE in place."
+        ],
+        solution: "<strong>Sample input — Z12345.UPDATE.IN (FB,80, six lines):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">REC001 STATUS:NEW  payload data\nREC002 STATUS:DONE payload data\nREC003 STATUS:NEW  payload data\nREC004 STATUS:NEW  payload data\nREC005 STATUS:DONE payload data\nREC006 STATUS:NEW  payload data</pre><strong>Z12345.EXEC(INPLACE):</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:1rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.88rem;line-height:1.45;margin:.6rem 0;\">/* REXX */\ndsn = \"'Z12345.UPDATE.IN'\"\n\n'ALLOC FI(INDD) DA(' || dsn || ') OLD REUSE'\nif rc ¬= 0 then do; say 'alloc failed RC=' rc; exit 8; end\n\nupdates = 0\ndo forever\n  'EXECIO 1 DISKRU INDD (STEM rec.)'\n  if rc = 2 then leave             /* RC=2 means EOF */\n  if rc ¬= 0 then do\n    say 'read error RC=' rc\n    leave\n  end\n\n  if pos('STATUS:NEW', rec.1) &gt; 0 then do\n    rec.1 = changestr('STATUS:NEW ', rec.1, 'STATUS:DONE')\n    'EXECIO 1 DISKW INDD (STEM rec.)'\n    updates = updates + 1\n  end\nend\n\n'EXECIO 0 DISKW INDD (FINIS)'\n'FREE FI(INDD)'\nsay updates 'records updated'\nexit 0</pre><strong>Sample output and resulting file content:</strong><pre style=\"background:#0d0d0d;color:#ffb000;padding:.6rem;border-radius:4px;overflow-x:auto;font-family:'Share Tech Mono',monospace;font-size:.85rem;margin:.4rem 0;\">%INPLACE\n4 records updated\n\nREC001 STATUS:DONE payload data\nREC002 STATUS:DONE payload data\nREC003 STATUS:DONE payload data\nREC004 STATUS:DONE payload data\nREC005 STATUS:DONE payload data\nREC006 STATUS:DONE payload data</pre><strong>Why DISKRU is better than read-all + write-all for this use case:</strong> if the dataset has millions of records, the full-rewrite approach allocates a stem of millions of strings (huge memory footprint), or copies the whole file twice (huge I/O). DISKRU touches exactly the records you need to change, in place, with constant memory. <strong>Caveats:</strong> (a) the modified record must be exactly the same length as the original — for FB datasets this is automatic, but for VB you must keep length identical or write to a different position; (b) DISKRU on a heavily-shared dataset may serialise other readers, so consider exclusive access timing; (c) failure mid-loop leaves the dataset partially updated — design for idempotency or take a backup first."
+      }
     ]
   },
 
