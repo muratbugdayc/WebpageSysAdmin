@@ -95,6 +95,89 @@
         try { localStorage.setItem(STORAGE_KEY, nowWiki ? 'wiki' : 'pipboy'); } catch (e) {}
       });
     })();
+
+    // ============================================================
+    // COPY-CODE BUTTON  attaches a "Copy" button to every <pre>
+    // (JCL, REXX, MQSC, sample output, etc.) — works on dynamically
+    // rendered tab content via MutationObserver.
+    // ============================================================
+    (function () {
+      function copyTextToClipboard(text, btn) {
+        var done = function () {
+          var orig = btn.textContent;
+          btn.textContent = '✓ Copied';
+          btn.classList.add('copied');
+          setTimeout(function () {
+            btn.textContent = orig;
+            btn.classList.remove('copied');
+          }, 1400);
+        };
+        if (navigator.clipboard && window.isSecureContext) {
+          navigator.clipboard.writeText(text).then(done).catch(function () {
+            fallbackCopy(text); done();
+          });
+        } else {
+          fallbackCopy(text); done();
+        }
+      }
+      function fallbackCopy(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus(); ta.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+
+      function attachCopyButton(pre) {
+        if (pre.dataset.copyAttached === '1') return;
+        pre.dataset.copyAttached = '1';
+        // Wrap the <pre> in a positioned container so the button can sit on top
+        var wrapper = document.createElement('div');
+        wrapper.className = 'code-block-wrapper';
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'code-copy-btn';
+        btn.textContent = '⧉ Copy';
+        btn.setAttribute('aria-label', 'Copy code to clipboard');
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          // Get the literal text content of the <pre>; this preserves \n line breaks
+          var text = pre.innerText || pre.textContent || '';
+          copyTextToClipboard(text, btn);
+        });
+        wrapper.appendChild(btn);
+      }
+
+      function scanAndAttach(root) {
+        if (!root || !root.querySelectorAll) return;
+        root.querySelectorAll('pre').forEach(attachCopyButton);
+      }
+
+      // Initial scan after DOMContentLoaded
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { scanAndAttach(document.body); });
+      } else {
+        scanAndAttach(document.body);
+      }
+
+      // Watch #app for dynamically rendered content (tab switches, topic loads)
+      var app = document.getElementById('app');
+      if (app && window.MutationObserver) {
+        new MutationObserver(function (muts) {
+          muts.forEach(function (m) {
+            m.addedNodes.forEach(function (n) {
+              if (n.nodeType === 1) scanAndAttach(n);
+            });
+          });
+        }).observe(app, { childList: true, subtree: true });
+      }
+    })();
   </script>
 
 </body>
