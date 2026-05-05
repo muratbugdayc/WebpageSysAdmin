@@ -16,6 +16,11 @@
   <!-- CRT scanline + vignette overlay (purely decorative) -->
   <div class="crt-overlay" aria-hidden="true"></div>
 
+  <!-- Theme toggle (fixed in bottom-right corner) -->
+  <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle colour theme" title="Toggle theme">
+    <span class="theme-toggle-label">📖 Wiki theme</span>
+  </button>
+
   <!-- ══════════════════════════════════════════════════════════
        HEADER — always visible, sticky
   ═══════════════════════════════════════════════════════════ -->
@@ -60,9 +65,37 @@
     <span class="footer-blink">█</span>
   </footer>
 
-  <!-- Scripts: data first, then app logic -->
+  <!-- Scripts: data first, then app logic, then theme toggle -->
   <script src="js/data.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    (function () {
+      var STORAGE_KEY = 'zos-fw-theme';
+      var btn = document.getElementById('theme-toggle');
+      var label = btn.querySelector('.theme-toggle-label');
+
+      function applyTheme(theme) {
+        if (theme === 'wiki') {
+          document.body.classList.add('wiki-theme');
+          label.textContent = '🟢 Pip-Boy theme';
+        } else {
+          document.body.classList.remove('wiki-theme');
+          label.textContent = '📖 Wiki theme';
+        }
+      }
+
+      // Load saved preference (default = pip-boy / matrix)
+      var saved = null;
+      try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+      applyTheme(saved === 'wiki' ? 'wiki' : 'pipboy');
+
+      btn.addEventListener('click', function () {
+        var nowWiki = !document.body.classList.contains('wiki-theme');
+        applyTheme(nowWiki ? 'wiki' : 'pipboy');
+        try { localStorage.setItem(STORAGE_KEY, nowWiki ? 'wiki' : 'pipboy'); } catch (e) {}
+      });
+    })();
+  </script>
 
 </body>
 </html>
