@@ -36,11 +36,18 @@
         </div>
       </a>
 
-      <!-- Level filter toggle -->
+      <!-- Search box -->
+      <div class="header-search">
+        <input id="search-input" type="search" placeholder="Search… (e.g., REORG, JCL, BPXBATCH)" autocomplete="off" />
+        <div id="search-results" class="search-results" hidden></div>
+      </div>
+
+      <!-- Level filter toggle + learning path button -->
       <nav class="level-toggle" aria-label="Filter by level">
         <button class="level-btn active" data-level="all"  aria-pressed="true">All</button>
         <button class="level-btn"        data-level="1"    aria-pressed="false">Level 1</button>
         <button class="level-btn"        data-level="2"    aria-pressed="false">Level 2</button>
+        <button id="path-btn" class="path-btn" type="button" aria-pressed="false">Learning Path</button>
       </nav>
 
     </div>
@@ -176,6 +183,234 @@
             });
           });
         }).observe(app, { childList: true, subtree: true });
+      }
+    })();
+
+    // ============================================================
+    // SEARCH BOX  matches against title, summary, content text,
+    // MCQ questions, and practical task titles. Results are top 8
+    // by score; click navigates via the existing hash router.
+    // ============================================================
+    (function () {
+      var input    = document.getElementById('search-input');
+      var resultsP = document.getElementById('search-results');
+      var debounce = null;
+
+      function stripHtml(s) {
+        return (s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+      }
+
+      function buildIndex() {
+        if (typeof topics === 'undefined') return [];
+        return topics.map(function (t) {
+          var mcqText = (t.mcq || []).map(function (q) { return q.question; }).join(' ');
+          var pracText = (t.practical || []).map(function (p) {
+            return (p.title || '') + ' ' + (p.description || '');
+          }).join(' ');
+          var blob = (t.title + ' ' + t.summary + ' ' + stripHtml(t.content) + ' ' + mcqText + ' ' + pracText).toLowerCase();
+          return { id: t.id, title: t.title, summary: t.summary, level: t.level, category: t.category, blob: blob };
+        });
+      }
+      var INDEX = null;
+
+      function search(q) {
+        if (!INDEX) INDEX = buildIndex();
+        var query = q.trim().toLowerCase();
+        if (query.length < 2) return [];
+        var terms = query.split(/\s+/).filter(Boolean);
+        var hits = [];
+        INDEX.forEach(function (entry) {
+          var score = 0;
+          var allMatched = true;
+          terms.forEach(function (term) {
+            if (entry.blob.indexOf(term) === -1) { allMatched = false; return; }
+            // Boost: title matches score higher
+            if (entry.title.toLowerCase().indexOf(term) !== -1) score += 10;
+            if (entry.summary.toLowerCase().indexOf(term) !== -1) score += 4;
+            score += 1; // base hit
+          });
+          if (allMatched) hits.push({ entry: entry, score: score });
+        });
+        hits.sort(function (a, b) { return b.score - a.score; });
+        return hits.slice(0, 8);
+      }
+
+      function renderResults(query) {
+        var hits = search(query);
+        if (hits.length === 0) {
+          if (query.trim().length < 2) { resultsP.hidden = true; resultsP.innerHTML = ''; return; }
+          resultsP.hidden = false;
+          resultsP.innerHTML = '<div class="search-noresult">No matches for &ldquo;' +
+            query.replace(/[<&>]/g, function (c) { return '&#' + c.charCodeAt(0) + ';'; }) +
+            '&rdquo;</div>';
+          return;
+        }
+        resultsP.hidden = false;
+        resultsP.innerHTML = hits.map(function (h) {
+          var t = h.entry;
+          return '<a class="search-result" href="#topic/' + t.id + '">' +
+                 '<span class="search-lvl search-lvl-' + t.level + '">L' + t.level + '</span>' +
+                 '<span class="search-title">' + t.title + '</span>' +
+                 '<span class="search-cat">' + t.category + '</span>' +
+                 '</a>';
+        }).join('');
+      }
+
+      input.addEventListener('input', function () {
+        clearTimeout(debounce);
+        debounce = setTimeout(function () { renderResults(input.value); }, 120);
+      });
+      input.addEventListener('focus', function () {
+        if (input.value.trim().length >= 2) renderResults(input.value);
+      });
+      // Hide on outside click
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('.header-search')) {
+          resultsP.hidden = true;
+        }
+      });
+      // Hide and clear after clicking a result
+      resultsP.addEventListener('click', function (e) {
+        if (e.target.closest('.search-result')) {
+          setTimeout(function () { resultsP.hidden = true; input.value = ''; }, 0);
+        }
+      });
+      // Keyboard: ESC clears
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+          input.value = '';
+          resultsP.hidden = true;
+          input.blur();
+        }
+      });
+    })();
+
+    // ============================================================
+    // OPTIMIZED LEARNING PATH  recommended order for newcomers.
+    // Click "Optimized Path" in the header to overlay the ordered
+    // list. Click any step to jump to that card.
+    // ============================================================
+    (function () {
+      // The recommended path. Each entry: {id, why}
+      var PATH = [
+        { id: 'l1-zos-overview', why: 'what z/OS is, address spaces, virtual storage, EBCDIC.' },
+        { id: 'l1-ipl-init',     why: 'How the system actually starts: IPL, NIP, PARMLIB. Builds on the address-space picture.' },
+        { id: 'l1-jes-sysplex',  why: 'How batch work flows through JES2.' },
+        { id: 'l1-hardware',     why: 'The hardware layer: CPC, LPAR, HMC, channels and the physical context for everything above it.' },
+        { id: 'l1-tso-ispf',     why: 'TSO logon, ISPF menus, the editor, and how to navigate the system.' },
+        { id: 'l1-dasd-datasets',why: 'Storage basics: DASD, sequential and partitioned datasets, GDGs. Required before working with files.' },
+        { id: 'l1-vsam-catalogs',why: 'VSAM, the ICF catalog, and the VTOC — how z/OS finds and stores data.' },
+        { id: 'l1-sdsf-smf',     why: 'Daily operations toolbox: SDSF for jobs and output, plus an intro to SMF, RMF, and USS.' },
+        { id: 'l1-jcl-core',     why: 'JCL fundamentals: JOB / EXEC / DD, return codes, IF/THEN/ELSE.' },
+        { id: 'l1-jcl-utils',    why: 'JCL procedures and the common batch utilities (IEFBR14, IEBGENER, IEBCOPY, DFSORT, IDCAMS, ...).' },
+        { id: 'l1-automation',   why: 'REXX basics. Builds on JCL knowledge.' },
+        { id: 'l1-cics-ims',     why: 'Subsystems intro: CICS and IMS TM for online transactions, IMS DB for hierarchical databases.' },
+        { id: 'l1-db2',          why: 'Db2 for z/OS basics: address spaces, SQL, SPUFI, BIND.' },
+        { id: 'l1-networking',   why: 'TCP/IP, FTP, and RACF basics. Wraps up Level 1 with networking and security foundations.' },
+        { id: 'l2-fundamentals', why: 'Level 2 starts here. z/OSMF and advanced sysplex internals.' }
+      ];
+
+      var pathBtn = document.getElementById('path-btn');
+      var appEl   = document.getElementById('app');
+      var pathActive = false;
+
+      function topicById(id) {
+        return (typeof topics !== 'undefined' ? topics : []).find(function (t) { return t.id === id; });
+      }
+
+      function renderPath() {
+        var rows = PATH.map(function (step, idx) {
+          var t = topicById(step.id);
+          if (!t) return '';
+          var lvl = t.level;
+          return '<a class="path-step" href="#topic/' + t.id + '">' +
+                   '<span class="path-step-num">' + (idx + 1) + '</span>' +
+                   '<span class="path-step-body">' +
+                     '<span class="path-step-head">' +
+                       '<span class="path-step-lvl path-step-lvl-' + lvl + '">L' + lvl + '</span>' +
+                       '<span class="path-step-title">' + t.title + '</span>' +
+                     '</span>' +
+                     '<span class="path-step-why">' + step.why + '</span>' +
+                   '</span>' +
+                 '</a>';
+        }).join('');
+
+        return '<div class="path-view">' +
+                 '<div class="path-hero">' +
+                   '<h2>Learning Path</h2>' +
+                 '</div>' +
+                 '<div class="path-list">' + rows + '</div>' +
+               '</div>';
+      }
+
+      function activate() {
+        appEl.innerHTML = renderPath();
+        document.body.classList.add('in-path');
+        pathBtn.classList.add('active');
+        pathBtn.setAttribute('aria-pressed', 'true');
+        pathActive = true;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      function deactivate() {
+        document.body.classList.remove('in-path');
+        pathBtn.classList.remove('active');
+        pathBtn.setAttribute('aria-pressed', 'false');
+        pathActive = false;
+        if (typeof renderHomeView === 'function') {
+          renderHomeView();
+        }
+      }
+
+      pathBtn.addEventListener('click', function () {
+        if (pathActive) deactivate();
+        else activate();
+      });
+
+      // If user navigates to a topic via hash, drop the path-active state
+      window.addEventListener('hashchange', function () {
+        if (pathActive && window.location.hash.indexOf('#topic/') === 0) {
+          document.body.classList.remove('in-path');
+          pathBtn.classList.remove('active');
+          pathBtn.setAttribute('aria-pressed', 'false');
+          pathActive = false;
+        }
+      });
+
+      // If user clicks any level filter button OR the brand link while
+      // path is active, deactivate the path so the normal home-view
+      // re-render shows up.
+      document.querySelectorAll('.level-btn').forEach(function (b) {
+        b.addEventListener('click', function () {
+          if (pathActive) {
+            document.body.classList.remove('in-path');
+            pathBtn.classList.remove('active');
+            pathBtn.setAttribute('aria-pressed', 'false');
+            pathActive = false;
+            // app.js will re-render home view next; no need to do it here
+          }
+        });
+      });
+      var brand = document.querySelector('.header-brand');
+      if (brand) {
+        brand.addEventListener('click', function (e) {
+          // Always return to the home view (full grid of cards) when the
+          // brand is clicked, regardless of whether we're in path mode,
+          // viewing a topic, or already on home with the URL at "#".
+          if (pathActive) {
+            document.body.classList.remove('in-path');
+            pathBtn.classList.remove('active');
+            pathBtn.setAttribute('aria-pressed', 'false');
+            pathActive = false;
+            // Re-render the home grid since we replaced #app with the path overlay
+            if (typeof renderHomeView === 'function') renderHomeView();
+          } else if (window.location.hash === '' || window.location.hash === '#') {
+            // Already at home and no hashchange will fire — manually re-render
+            // so the user always lands on a fresh home grid.
+            if (typeof renderHomeView === 'function') renderHomeView();
+          }
+          // If hash !== '#', the href="#" navigation will fire hashchange
+          // and app.js's handleRoute() will call renderHomeView automatically.
+        });
       }
     })();
   </script>

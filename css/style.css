@@ -195,21 +195,29 @@ body.in-topic .level-toggle {
 
 .header-title {
   font-family: var(--font-display);
-  font-size: 1.65rem;
-  letter-spacing: .12em;
+  font-size: 1.25rem;
+  letter-spacing: .08em;
   color: var(--green);
   text-shadow: var(--glow-text);
   line-height: 1.1;
+  white-space: nowrap;
 }
 
 .header-subtitle {
   font-family: var(--font-mono);
-  font-size: .75rem;
+  font-size: .65rem;
   color: var(--cyan-dim);
-  letter-spacing: .14em;
+  letter-spacing: .1em;
   text-transform: uppercase;
   margin-top: .1rem;
   text-shadow: 0 0 6px rgba(0,229,255,.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-brand > div {
+  min-width: 0;
 }
 
 /*  LEVEL TOGGLE  */
@@ -1343,7 +1351,9 @@ body.wiki-theme .category-heading {
   text-shadow: none;
   color: var(--text);
 }
-body.wiki-theme h1, body.wiki-theme .header-title { font-size: 1.8rem; }
+body.wiki-theme h1 { font-size: 1.8rem; }
+body.wiki-theme .header-title { font-size: 1.05rem; line-height: 1.2; margin: 0; }
+body.wiki-theme .header-subtitle { font-size: .72rem; line-height: 1.2; margin: 0; color: var(--text-dim); }
 body.wiki-theme h2 {
   font-size: 1.4rem;
   border-bottom: 1px solid var(--border);
@@ -1699,4 +1709,323 @@ body.wiki-theme .code-copy-btn.copied {
   background: #effaf6;
   color: #14866d;
   border-color: #14866d;
+}
+
+/* ============================================================
+   SEARCH BOX (header) and results dropdown
+   ============================================================ */
+.header-search {
+  position: relative;
+  flex: 1 1 240px;
+  min-width: 180px;
+  max-width: 340px;
+}
+#search-input {
+  width: 100%;
+  padding: .45rem .8rem;
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+  transition: border-color .12s ease, box-shadow .12s ease;
+}
+#search-input:focus {
+  border-color: var(--green);
+  box-shadow: var(--glow-sm);
+}
+#search-input::placeholder {
+  color: var(--text-muted);
+  opacity: .8;
+}
+.search-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(0,0,0,.6), var(--glow-sm);
+  z-index: 1000;
+}
+.search-result {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: .6rem;
+  align-items: center;
+  padding: .55rem .8rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  transition: background .1s ease;
+}
+.search-result:last-child { border-bottom: none; }
+.search-result:hover {
+  background: rgba(57,255,20,.10);
+}
+.search-lvl {
+  font-family: var(--font-display);
+  font-size: .85rem;
+  padding: .05rem .4rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--cyan-dim);
+  color: var(--cyan);
+  background: var(--cyan-bg);
+}
+.search-lvl-2 {
+  border-color: var(--amber-dim);
+  color: var(--amber);
+  background: var(--amber-bg);
+}
+.search-title {
+  font-size: .9rem;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-cat {
+  font-size: .72rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.search-noresult {
+  padding: .7rem .8rem;
+  font-size: .85rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Hide search box when reading a topic to give the page more breathing room */
+body.in-topic .header-search {
+  display: none;
+}
+
+/* Wiki-theme overrides */
+body.wiki-theme #search-input {
+  background: #ffffff;
+  border-color: #c8ccd1;
+  color: #202122;
+}
+body.wiki-theme #search-input:focus {
+  border-color: #3366cc;
+  box-shadow: 0 0 0 2px rgba(51,102,204,.2);
+}
+body.wiki-theme .search-results {
+  background: #ffffff;
+  border-color: #c8ccd1;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15);
+}
+body.wiki-theme .search-result {
+  border-bottom-color: #eaecf0;
+}
+body.wiki-theme .search-result:hover {
+  background: #eaf3ff;
+}
+body.wiki-theme .search-title {
+  color: #3366cc;
+}
+body.wiki-theme .search-result:hover .search-title {
+  text-decoration: underline;
+}
+
+/* Mobile: stack search below the brand */
+@media (max-width: 800px) {
+  .header-inner {
+    flex-wrap: wrap;
+    height: auto;
+    padding: .6rem 0;
+  }
+  .header-search {
+    flex: 1 1 100%;
+    max-width: 100%;
+    order: 3;
+    margin-top: .4rem;
+  }
+}
+
+/* ============================================================
+   OPTIMIZED LEARNING PATH (header button + overlay view)
+   ============================================================ */
+.path-btn {
+  margin-left: .35rem;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: .38rem 1.1rem;
+  border-radius: var(--radius-sm);
+  font-size: .85rem;
+  font-family: var(--font-mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  transition: all .15s;
+}
+.path-btn:hover {
+  border-color: var(--border);
+  color: var(--green);
+  text-shadow: var(--glow-sm);
+}
+.path-btn.active {
+  background: var(--green-dark);
+  border-color: var(--green-dim);
+  color: var(--green);
+  text-shadow: var(--glow-text);
+  box-shadow: var(--glow-sm), inset 0 0 8px rgba(57,255,20,.15);
+}
+
+.path-view {
+  max-width: var(--max-width);
+  margin: 1.5rem auto;
+  padding: 0 1.5rem;
+}
+.path-hero {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--cyan);
+  border-radius: var(--radius);
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 1.4rem;
+  box-shadow: var(--glow-sm);
+}
+.path-hero h2 {
+  font-family: var(--font-display);
+  color: var(--cyan);
+  font-size: 1.6rem;
+  letter-spacing: .04em;
+  margin: 0 0 .4rem 0;
+  text-shadow: var(--glow-cyan);
+}
+.path-hero p {
+  color: var(--text-dim);
+  margin: 0;
+}
+
+.path-list {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+}
+.path-step {
+  display: grid;
+  grid-template-columns: 3rem 1fr;
+  gap: 1rem;
+  align-items: stretch;
+  padding: .9rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color .12s ease, transform .12s ease, background .12s ease;
+}
+.path-step:hover {
+  border-color: var(--green);
+  transform: translateX(2px);
+  background: rgba(57,255,20,.05);
+}
+.path-step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--green);
+  text-shadow: var(--glow-text);
+  background: var(--green-faint);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--green-dim);
+}
+.path-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+  min-width: 0;
+}
+.path-step-head {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  flex-wrap: wrap;
+}
+.path-step-lvl {
+  font-family: var(--font-display);
+  font-size: .85rem;
+  padding: .05rem .45rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--cyan-dim);
+  color: var(--cyan);
+  background: var(--cyan-bg);
+}
+.path-step-lvl-2 {
+  border-color: var(--amber-dim);
+  color: var(--amber);
+  background: var(--amber-bg);
+}
+.path-step-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--text);
+}
+.path-step-why {
+  font-size: .88rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+/* No additional in-path hide rule needed: the path JS replaces #app
+   contents directly, and any other navigation (level toggle, brand
+   click, hashchange) re-renders #app via app.js. */
+
+/* Wiki theme overrides for path view */
+body.wiki-theme .path-hero {
+  background: #ffffff;
+  border-color: #c8ccd1;
+  border-left-color: #3366cc;
+  box-shadow: none;
+}
+body.wiki-theme .path-hero h2 {
+  color: #3366cc;
+  text-shadow: none;
+  border-bottom: none;
+}
+body.wiki-theme .path-step {
+  background: #ffffff;
+  border-color: #c8ccd1;
+}
+body.wiki-theme .path-step:hover {
+  border-color: #3366cc;
+  background: #eaf3ff;
+}
+body.wiki-theme .path-step-num {
+  background: #eaf3ff;
+  color: #3366cc;
+  text-shadow: none;
+  border-color: #c8ccd1;
+}
+body.wiki-theme .path-step-title {
+  color: #3366cc;
+}
+body.wiki-theme .path-step:hover .path-step-title {
+  text-decoration: underline;
+}
+body.wiki-theme .path-step-lvl {
+  background: #eaf3ff;
+  color: #3366cc;
+  border-color: #c8ccd1;
+}
+body.wiki-theme .path-step-lvl-2 {
+  background: #fdf2f2;
+  color: #b32424;
+  border-color: #f8c1c1;
+}
+body.wiki-theme #path-btn.active {
+  background: #eaf3ff;
+  color: #3366cc;
+  border-color: #3366cc;
+  box-shadow: none;
 }
