@@ -397,10 +397,6 @@ function renderPractical(topic) {
   }
 
   let html = `
-    <div class="practical-intro">
-      <p>Work through the tasks below at your own pace. Use the hints if you get stuck, and reveal the solution only after making a genuine attempt.</p>
-    </div>
-    <div class="practical-list">
   `;
 
   topic.practical.forEach((task, ti) => {
