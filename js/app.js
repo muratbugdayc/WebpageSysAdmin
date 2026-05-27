@@ -268,53 +268,79 @@ function renderMCQ(topic) {
   }
 
   topic.mcq.forEach((q, qi) => {
+    const isFill      = q.type === 'fill';
     const userAnswer  = s.selected[qi];
     const isSubmitted = s.submitted;
-    const isCorrect   = isSubmitted && userAnswer === q.answer;
-    const isWrong     = isSubmitted && userAnswer !== undefined && !isCorrect;
+    const isAnswered  = isFill ? (typeof userAnswer === 'string' && userAnswer.trim() !== '') : (userAnswer !== undefined);
+    const isCorrect   = isSubmitted && (isFill ? isFillCorrect(q, userAnswer) : userAnswer === q.answer);
+    const isWrong     = isSubmitted && isAnswered && !isCorrect;
 
     html += `
       <div class="mcq-card ${isCorrect ? 'mcq-correct' : ''} ${isWrong ? 'mcq-wrong' : ''}">
         <div class="mcq-q-header">
-          <span class="mcq-number">Q${qi + 1}</span>
-          ${isSubmitted ? `<span class="mcq-result-icon">${isCorrect ? '✓' : (userAnswer !== undefined ? '✗' : '—')}</span>` : ''}
+          <span class="mcq-number">${isFill ? 'Q' + (qi + 1) + ' · Fill-in' : 'Q' + (qi + 1)}</span>
+          ${isSubmitted ? `<span class="mcq-result-icon">${isCorrect ? '✓' : (isAnswered ? '✗' : '—')}</span>` : ''}
         </div>
         <p class="mcq-question">${q.question}</p>
-        <div class="mcq-options">
     `;
 
-    q.options.forEach((opt, oi) => {
-      const isSelected = userAnswer === oi;
-      const isAnswer   = q.answer === oi;
-
+    if (isFill) {
+      const inputVal = (typeof userAnswer === 'string') ? userAnswer.replace(/"/g, '&quot;') : '';
       html += `
-        <label class="mcq-option ${isSubmitted ? 'mcq-disabled' : ''}
-                      ${isSubmitted && isAnswer ? 'option-correct' : ''}
-                      ${isSubmitted && isSelected && !isAnswer ? 'option-wrong' : ''}
-                      ${!isSubmitted && isSelected ? 'option-selected' : ''}">
-          <input
-            type="radio"
-            name="q${qi}"
-            value="${oi}"
-            ${isSelected ? 'checked' : ''}
-            ${isSubmitted ? 'disabled' : ''}
-            onchange="selectAnswer(${qi}, ${oi})"
-          >
-          <span class="option-letter">${['A','B','C','D'][oi]}</span>
-          <span class="option-text">${opt}</span>
-        </label>
-      `;
-    });
-
-    html += `</div>`;
-
-    if (isSubmitted) {
-      html += `
-        <div class="mcq-explanation">
-          <strong>${isCorrect ? '✓ Correct.' : (userAnswer !== undefined ? '✗ Incorrect.' : '— Not answered.')}</strong>
-          ${q.explanation}
+        <div class="mcq-fill">
+          <input type="text"
+                 class="mcq-fill-input"
+                 id="fillinput-${qi}"
+                 value="${inputVal}"
+                 placeholder="Type your answer..."
+                 autocomplete="off"
+                 spellcheck="false"
+                 ${isSubmitted ? 'disabled' : ''}
+                 oninput="selectFill(${qi}, this.value)"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();}">
         </div>
       `;
+      if (isSubmitted) {
+        html += `
+          <div class="mcq-explanation">
+            <strong>${isCorrect ? '✓ Correct.' : (isAnswered ? '✗ Incorrect.' : '— Not answered.')}</strong>
+            ${!isCorrect ? `Expected: <code>${q.answer}</code>${q.accept && q.accept.length ? ' (also accepted: ' + q.accept.map(a => '<code>' + a + '</code>').join(', ') + ')' : ''}. ` : ''}
+            ${q.explanation}
+          </div>
+        `;
+      }
+    } else {
+      html += `<div class="mcq-options">`;
+      q.options.forEach((opt, oi) => {
+        const isSelected = userAnswer === oi;
+        const isAnswer   = q.answer === oi;
+        html += `
+          <label class="mcq-option ${isSubmitted ? 'mcq-disabled' : ''}
+                        ${isSubmitted && isAnswer ? 'option-correct' : ''}
+                        ${isSubmitted && isSelected && !isAnswer ? 'option-wrong' : ''}
+                        ${!isSubmitted && isSelected ? 'option-selected' : ''}">
+            <input
+              type="radio"
+              name="q${qi}"
+              value="${oi}"
+              ${isSelected ? 'checked' : ''}
+              ${isSubmitted ? 'disabled' : ''}
+              onchange="selectAnswer(${qi}, ${oi})"
+            >
+            <span class="option-letter">${['A','B','C','D'][oi]}</span>
+            <span class="option-text">${opt}</span>
+          </label>
+        `;
+      });
+      html += `</div>`;
+      if (isSubmitted) {
+        html += `
+          <div class="mcq-explanation">
+            <strong>${isCorrect ? '✓ Correct.' : (isAnswered ? '✗ Incorrect.' : '— Not answered.')}</strong>
+            ${q.explanation}
+          </div>
+        `;
+      }
     }
 
     html += `</div>`;
@@ -359,15 +385,50 @@ function selectAnswer(questionIndex, choiceIndex) {
     }
   });
 
-  // Update progress counter without full re-render
-  if (wasNew) {
-    const bar = document.querySelector('.mcq-progress');
-    if (bar) {
-      const answered = Object.keys(state.mcqState.selected).length;
-      const total = topics.find(t => t.id === state.topicId)?.mcq.length ?? 0;
-      bar.textContent = `${answered} / ${total} answered`;
+  updateProgressCounter(wasNew);
+}
+
+function selectFill(questionIndex, value) {
+  const wasNew = !(questionIndex in state.mcqState.selected) ||
+                 (typeof state.mcqState.selected[questionIndex] === 'string' &&
+                  state.mcqState.selected[questionIndex].trim() === '' &&
+                  value.trim() !== '');
+  state.mcqState.selected[questionIndex] = value;
+  if (wasNew) updateProgressCounter(true);
+}
+
+function updateProgressCounter(forceCount) {
+  const bar = document.querySelector('.mcq-progress');
+  if (!bar) return;
+  const topic = topics.find(t => t.id === state.topicId);
+  if (!topic) return;
+  // Count answers: MCQ = any value; fill = non-empty string
+  let answered = 0;
+  topic.mcq.forEach((q, i) => {
+    const v = state.mcqState.selected[i];
+    if (q.type === 'fill') {
+      if (typeof v === 'string' && v.trim() !== '') answered++;
+    } else {
+      if (v !== undefined) answered++;
+    }
+  });
+  bar.textContent = `${answered} / ${topic.mcq.length} answered`;
+}
+
+// Compare a fill-in answer against the question's expected answer(s).
+// Case-insensitive, leading/trailing whitespace stripped.
+function isFillCorrect(q, userAnswer) {
+  if (typeof userAnswer !== 'string') return false;
+  const norm = s => (s || '').toString().trim().toLowerCase();
+  const u = norm(userAnswer);
+  if (u === '') return false;
+  if (norm(q.answer) === u) return true;
+  if (Array.isArray(q.accept)) {
+    for (let i = 0; i < q.accept.length; i++) {
+      if (norm(q.accept[i]) === u) return true;
     }
   }
+  return false;
 }
 
 function submitMCQ(topicId) {
@@ -375,7 +436,12 @@ function submitMCQ(topicId) {
   if (!topic) return;
   const s = state.mcqState;
   s.submitted = true;
-  s.score = topic.mcq.reduce((acc, q, i) => acc + (s.selected[i] === q.answer ? 1 : 0), 0);
+  s.score = topic.mcq.reduce((acc, q, i) => {
+    if (q.type === 'fill') {
+      return acc + (isFillCorrect(q, s.selected[i]) ? 1 : 0);
+    }
+    return acc + (s.selected[i] === q.answer ? 1 : 0);
+  }, 0);
   document.getElementById('tab-content').innerHTML = renderMCQ(topic);
   document.getElementById('tab-content').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
