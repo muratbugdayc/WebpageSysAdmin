@@ -63,7 +63,3 @@ Suggestions for improvements, additional competencies, or corrections are welcom
 GitHub: [@muratbugdayc](https://github.com/muratbugdayc)
 
 ---
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
