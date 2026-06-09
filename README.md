@@ -23,15 +23,15 @@ This framework defines the skills, knowledge, and practical competencies expecte
 
 ### 3. Storage & Data Management
 
-### 4. Networking & Connectivity
+### 4. System Operations & Tools
 
-### 5. Security & Compliance
+### 5. Batch Processing & JCL
 
-### 6. Performance & Capacity Management
+### 6. Automation & Scripting
 
-### 7. Automation & Scripting
+### 7. Subsystems & Middleware
 
-### 8. Availability & Problem Determination
+### 8. Networking & Security
 
 ---
 
