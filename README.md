@@ -41,13 +41,15 @@ JCL procedures, REXX, automation with IBM Z System Automation, and job schedulin
 ### 8. Availability & Problem Determination
 IPL procedures, SYSLOGs, dumps, SVC dumps, IPCS, problem diagnosis, and disaster recovery.
 
+---
 
 ## How to Use This Framework
 
 1. **Self-assessment** — Review each domain and identify your current level.
 2. **Gap analysis** — Identify areas where growth is needed to reach the next level.
 3. **Learning plan** — Use the domains as a guide to structure training and study.
-4. **Performance reviews** — Use as a shared reference between employee and manager.
+4. **Practical tasks** — Use an emulator ([Hercules/Hyperion](https://github.com/SDL-Hercules-390/hyperion)) or [IBM zXplore](https://www.ibm.com/community/z/zxplore/) to complete hands-on tasks within each technical domain. Note that tasks involving networking and security should be practised in an emulator, as public environments such as IBM zXplore do not allow changes to those configurations.
+5. **Performance reviews** — Use as a shared reference between employee and manager.
 
 ---
 
@@ -63,3 +65,7 @@ Suggestions for improvements, additional competencies, or corrections are welcom
 GitHub: [@muratbugdayc](https://github.com/muratbugdayc)
 
 ---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
