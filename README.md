@@ -64,8 +64,3 @@ Suggestions for improvements, additional competencies, or corrections are welcom
 **Murat Bugdayci**  
 GitHub: [@muratbugdayc](https://github.com/muratbugdayc)
 
----
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
