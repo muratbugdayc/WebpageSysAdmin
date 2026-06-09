@@ -8,13 +8,6 @@ A structured competency framework for z/OS professionals, covering **Level 1** a
 
 This framework defines the skills, knowledge, and practical competencies expected of z/OS System Programmers and System Administrators at two career levels. It serves as a reference for self-assessment, onboarding, training planning, and performance reviews.
 
-| Level | Profile |
-|-------|---------|
-| **Level 1** | Junior — foundational knowledge, guided execution, learning under supervision |
-| **Level 2** | Medior — independent execution, problem-solving, mentoring Level 1 professionals |
-
----
-
 ## 8 Technical Competency Domains
 
 ### 1. Platform Fundamentals
