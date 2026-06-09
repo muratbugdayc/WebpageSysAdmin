@@ -18,28 +18,20 @@ This framework defines the skills, knowledge, and practical competencies expecte
 ## 8 Technical Competency Domains
 
 ### 1. Platform Fundamentals
-Core understanding of z/OS architecture, JCL, ISPF, SDSF, and the mainframe operating environment.
 
 ### 2. Hardware & Virtualization
-Knowledge of IBM Z hardware generations, PR/SM, LPARs, and virtualization concepts including z/VM.
 
 ### 3. Storage & Data Management
-Working with DASD, SMS, VSAM, catalogs, HSM, and tape management systems.
 
 ### 4. Networking & Connectivity
-TCP/IP on z/OS, VTAM, SNA, FTP, TN3270, and network configuration and troubleshooting.
 
 ### 5. Security & Compliance
-RACF administration, access control, auditing, encryption, and compliance frameworks (e.g. PCI-DSS, SOX).
 
 ### 6. Performance & Capacity Management
-RMF, SMF, workload management (WLM), tuning, and capacity planning.
 
 ### 7. Automation & Scripting
-JCL procedures, REXX, automation with IBM Z System Automation, and job scheduling (e.g. TWS/OPC).
 
 ### 8. Availability & Problem Determination
-IPL procedures, SYSLOGs, dumps, SVC dumps, IPCS, problem diagnosis, and disaster recovery.
 
 ---
 
